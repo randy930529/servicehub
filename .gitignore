@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+*-lock.json
+*-lock.yaml
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+scripts/
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# MacOS
+.DS_Store
+*.pem
+
+# Local env files
+.env*.local
+
+# Typescript
+*.tsbuildinfo
+
+example
+
+# Generated native folders
+/ios
+/android
+
+# Bundled output
+/bundle
+
+# VSCode
+.vscode/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Claude
+.claude/
+Claude.md
+AGENTS.md
+
+# CLI
+expo-cli-*.log
+eas.json
