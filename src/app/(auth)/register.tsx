@@ -14,10 +14,10 @@ import { ThemedView } from "@/components/themed-view";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Spacing } from "@/constants/theme";
-import { LoginSchema, type LoginForm } from "@/lib/validation/auth";
+import { RegisterSchema, type RegisterForm } from "@/lib/validation/auth";
 import { useAuthStore } from "@/stores/auth.store";
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { login } = useAuthStore();
@@ -26,15 +26,16 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(LoginSchema),
-    defaultValues: { email: "", password: "" },
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(RegisterSchema),
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
 
-  async function onSubmit(_data: LoginForm) {
+  async function onSubmit(_data: RegisterForm) {
     await new Promise((r) => setTimeout(r, 800));
-    await login("mock-token-login");
+    await login("mock-token-register");
     router.replace("/");
+    // router.replace("/(app)/home");
   }
 
   return (
@@ -57,11 +58,29 @@ export default function LoginScreen() {
             ServiceHub
           </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.tagline}>
-            Inicia sesión para continuar
+            Crea tu cuenta
           </ThemedText>
         </ThemedView>
 
         <ThemedView style={styles.form}>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                label="Nombre completo"
+                placeholder="Juan Pérez"
+                testID="register-name-input"
+                autoCapitalize="words"
+                autoCorrect={false}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                value={value}
+                error={errors.name?.message}
+              />
+            )}
+          />
+
           <Controller
             control={control}
             name="email"
@@ -69,7 +88,7 @@ export default function LoginScreen() {
               <TextInput
                 label="Correo electrónico"
                 placeholder="tu@correo.com"
-                testID="login-email-input"
+                testID="register-email-input"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -87,8 +106,8 @@ export default function LoginScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 label="Contraseña"
-                placeholder="••••••••"
-                testID="login-password-input"
+                placeholder="Mínimo 8 caracteres"
+                testID="register-password-input"
                 secureTextEntry
                 onChangeText={onChange}
                 onBlur={onBlur}
@@ -98,35 +117,44 @@ export default function LoginScreen() {
             )}
           />
 
+          <Controller
+            control={control}
+            name="confirmPassword"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                label="Confirmar contraseña"
+                placeholder="Repite tu contraseña"
+                testID="register-confirm-password-input"
+                secureTextEntry
+                onChangeText={onChange}
+                onBlur={onBlur}
+                value={value}
+                error={errors.confirmPassword?.message}
+              />
+            )}
+          />
+
           <Button
-            label="Ingresar"
-            testID="login-submit-button"
+            label="Crear cuenta"
+            testID="register-submit-button"
             variant="primary"
             size="lg"
             fullWidth
             loading={isSubmitting}
             onPress={handleSubmit(onSubmit)}
           />
-
-          <Button
-            label="Olvidé mi contraseña"
-            variant="ghost"
-            size="sm"
-            onPress={() => {}}
-            style={styles.centered}
-          />
         </ThemedView>
 
         <ThemedView style={styles.footer}>
           <ThemedText type="small" themeColor="textSecondary">
-            ¿No tienes cuenta?
+            ¿Ya tienes cuenta?
           </ThemedText>
           <Button
-            label="Crear cuenta"
+            label="Iniciar sesión"
             variant="outline"
             size="md"
             fullWidth
-            onPress={() => router.push("/(auth)/register")}
+            onPress={() => router.back()}
           />
         </ThemedView>
       </ScrollView>
@@ -135,9 +163,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
+  flex: { flex: 1 },
   container: {
     flexGrow: 1,
     paddingHorizontal: Spacing.four,
@@ -156,9 +182,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
-  },
-  centered: {
-    alignSelf: "center",
   },
   footer: {
     gap: Spacing.two,
