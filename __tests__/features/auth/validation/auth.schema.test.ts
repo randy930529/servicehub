@@ -1,4 +1,4 @@
-import { LoginSchema, RegisterSchema } from "@/lib/validation/auth";
+import { LoginSchema, RegisterSchema } from "@/features/auth/validation/auth.schema";
 import { describe, expect, it } from "@jest/globals";
 
 describe("loginSchema", () => {
