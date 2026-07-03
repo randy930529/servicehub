@@ -4,7 +4,10 @@
 
 Esta guía documenta los patrones que usamos en ServiceHub para construir
 formularios validados, con errores inline y persistencia de sesión. Los
-ejemplos están tomados del código real de `src/app/(auth)/`.
+ejemplos están tomados del código real de `src/features/auth/`.
+
+> La organización por features y la capa de dominio se documentan en
+> [`docs/architecture/feature-based.md`](../architecture/feature-based.md).
 
 ---
 
@@ -26,11 +29,11 @@ nunca se desincronizan.
 
 ## 2. Definir el schema de validación
 
-Los schemas viven en `src/lib/validation/`. Cada mensaje de error se declara
-junto a su regla para mantenerlo cerca del contexto.
+Los schemas viven en `src/features/<feature>/validation/`. Cada mensaje de error se
+declara junto a su regla para mantenerlo cerca del contexto.
 
 ```ts
-// src/lib/validation/auth.ts
+// src/features/auth/validation/auth.schema.ts
 import { z } from "zod";
 
 export const LoginSchema = z.object({
@@ -72,7 +75,7 @@ Patrón base de cualquier pantalla con formulario:
 ```tsx
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import { LoginSchema, type LoginForm } from "@/lib/validation/auth";
+import { LoginSchema, type LoginForm } from "@/features/auth";
 
 const {
   control,
@@ -121,22 +124,26 @@ React Native no tiene inputs nativos del DOM, así que envolvemos cada campo con
 - Mapea `field.onChange` → `onChangeText` (RN usa `onChangeText`, no `onChange`).
 - Pasa siempre `onBlur` y `value` para que RHF controle el campo por completo.
 - `error={errors.<campo>?.message}` pinta el mensaje debajo del input; el borde
-  se pone rojo automáticamente (ver `src/components/ui/text-input.tsx`).
+  se pone rojo automáticamente (ver `src/shared/components/ui/text-input.tsx`).
 - Agrega `testID` a cada input y al botón de submit para poder testearlos.
 
 ---
 
-## 5. Submit + persistencia del token
+## 5. Submit + dominio + persistencia del token
 
 `handleSubmit` valida contra el schema **antes** de llamar a `onSubmit`. Si hay
 errores, `onSubmit` no se ejecuta y `errors` se rellena.
 
+La pantalla no contiene lógica de negocio: delega en un **caso de uso** del dominio
+(`loginUser`), que hoy está mockeado y mañana llamará a la API real sin tocar la UI.
+
 ```tsx
+import { loginUser } from "@/features/auth"; // caso de uso del dominio
 const { login } = useAuthStore();
 
-async function onSubmit(_data: LoginForm) {
-  await new Promise((r) => setTimeout(r, 800)); // simula latencia de red
-  await login("mock-token-login");              // guarda token en SecureStore
+async function onSubmit(data: LoginForm) {
+  const token = await loginUser(data); // dominio: valida credenciales → token
+  await login(token);                   // store: guarda el token en SecureStore
   router.replace("/");
 }
 
@@ -151,7 +158,7 @@ async function onSubmit(_data: LoginForm) {
 El store persiste el token de forma segura:
 
 ```ts
-// src/stores/auth.store.ts
+// src/features/auth/stores/auth.store.ts
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 
@@ -186,16 +193,21 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 Los tests viven en `__tests__/`. Cubrimos tres niveles:
 
-1. **Schema** (`__tests__/validation/auth.schema.test.ts`) — valida reglas de
-   Zod aisladas, sin UI.
-2. **Pantalla** (`__tests__/screens/*.test.tsx`) — render + interacción con RN
-   Testing Library.
-3. **Store** — mockeado en los tests de pantalla.
+1. **Dominio** (`__tests__/features/auth/domain/*.test.ts`) — use-cases puros, sin UI.
+2. **Schema** (`__tests__/features/auth/validation/auth.schema.test.ts`) — valida
+   reglas de Zod aisladas, sin UI.
+3. **Pantalla** (`__tests__/features/auth/screens/*.test.tsx`) — render + interacción
+   con RN Testing Library.
+4. **Store** — mockeado en los tests de pantalla.
+
+> Los tests de pantalla importan la pantalla concreta
+> (`@/features/auth/screens/login-screen`), no el barrel, para no arrastrar
+> dependencias nativas de otras pantallas (p. ej. reanimated) al entorno de jest.
 
 ### 6.1 Test del schema (rápido, sin render)
 
 ```ts
-import { LoginSchema } from "@/lib/validation/auth";
+import { LoginSchema } from "@/features/auth/validation/auth.schema";
 
 it("rejects invalid email", () => {
   const result = LoginSchema.safeParse({ email: "invalido", password: "123456" });
@@ -212,7 +224,7 @@ Mockea el store para aislar la UI de la persistencia:
 
 ```tsx
 const mockLogin = jest.fn();
-jest.mock("@/stores/auth.store", () => ({
+jest.mock("@/features/auth/stores/auth.store", () => ({
   useAuthStore: () => ({ login: mockLogin }),
 }));
 ```
@@ -249,7 +261,7 @@ expect(mockLogin).toHaveBeenCalledWith("mock-token-login");
 
 ## 7. Checklist para un nuevo formulario
 
-- [ ] Definir el schema de Zod en `src/lib/validation/` + exportar `z.infer` type.
+- [ ] Definir el schema de Zod en `src/features/<feature>/validation/*.schema.ts` + exportar `z.infer` type.
 - [ ] `useForm<T>({ resolver: zodResolver(Schema), defaultValues })`.
 - [ ] Un `<Controller>` por campo, mapeando `onChange → onChangeText`.
 - [ ] `error={errors.<campo>?.message}` en cada input.
