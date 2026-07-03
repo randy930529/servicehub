@@ -8,9 +8,9 @@ import {
 } from "react-native";
 import { SymbolView } from "expo-symbols";
 
-import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { ThemedText } from "@/shared/components/themed-text";
+import { Spacing } from "@/shared/constants/theme";
+import { useTheme } from "@/shared/hooks/use-theme";
 
 export type TextInputProps = RNTextInputProps & {
   label?: string;

@@ -2,13 +2,13 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { TextInput } from "@/components/ui/text-input";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { BottomTabInset, Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { Button } from "@/shared/components/ui/button";
+import { Card } from "@/shared/components/ui/card";
+import { TextInput } from "@/shared/components/ui/text-input";
+import { ThemedText } from "@/shared/components/themed-text";
+import { ThemedView } from "@/shared/components/themed-view";
+import { BottomTabInset, Spacing } from "@/shared/constants/theme";
+import { useTheme } from "@/shared/hooks/use-theme";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const theme = useTheme();

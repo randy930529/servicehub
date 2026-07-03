@@ -1,8 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from "react-native";
 
-import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { ThemedText } from "@/shared/components/themed-text";
+import { Spacing } from "@/shared/constants/theme";
+import { useTheme } from "@/shared/hooks/use-theme";
 
 export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 export type ButtonSize = "sm" | "md" | "lg";
