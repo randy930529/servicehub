@@ -59,7 +59,7 @@
 | **Next.js**            | 14.x    | Backend framework  | API Routes, SSR, native TypeScript       |
 | **Node.js**            | 20+     | Runtime            | Unified fullstack language               |
 | **MongoDB**            | 7.x+    | Database           | NoSQL, flexible, scalable, native JSON   |
-| **Mongoose**           | 8.x     | Type-safe ODM      | TypeScript first, migrations, validation |
+| **Mongoose**           | 9.x     | Type-safe ODM      | TypeScript first, migrations, validation |
 | **GraphQL**            | Latest  | GraphQL server     | Efficient queries, self-documented       |
 | **Stripe API**         | Latest  | Payment processing | Reliable solution, webhooks              |
 | **Firebase Admin SDK** | Latest  | Push notifications | Cloud Messaging                          |
