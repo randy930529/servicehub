@@ -1,72 +1,46 @@
-import type { Service } from "../types";
+import { apiClient } from "@/shared/lib/api-client";
 
-/** Simulated network latency until the real catalog API exists. */
-const MOCK_NETWORK_DELAY_MS = 600;
+import type { Service, ServiceCategory } from "../types";
 
-const MOCK_SERVICES: Service[] = [
-  {
-    id: "svc-1",
-    name: "Limpieza de hogar",
-    description: "Limpieza profunda de tu casa o departamento, por horas.",
-    category: "hogar",
-    priceFromCents: 45000,
-    rating: 4.8,
-    providerName: "CleanPro",
-  },
-  {
-    id: "svc-2",
-    name: "Corte y peinado a domicilio",
-    description: "Estilista profesional en la comodidad de tu hogar.",
-    category: "belleza",
-    priceFromCents: 30000,
-    rating: 4.6,
-    providerName: "Estudio Bella",
-  },
-  {
-    id: "svc-3",
-    name: "Reparación de computadoras",
-    description: "Diagnóstico y reparación de hardware y software.",
-    category: "tecnologia",
-    priceFromCents: 60000,
-    rating: 4.9,
-    providerName: "TecnoFix",
-  },
-  {
-    id: "svc-4",
-    name: "Masaje relajante",
-    description: "Sesión de 60 minutos para liberar tensión y estrés.",
-    category: "bienestar",
-    priceFromCents: 55000,
-    rating: 4.7,
-    providerName: "Zen Spa",
-  },
-  {
-    id: "svc-5",
-    name: "Lavado de auto premium",
-    description: "Lavado exterior e interior con encerado incluido.",
-    category: "automotriz",
-    priceFromCents: 25000,
-    rating: 4.5,
-    providerName: "AutoShine",
-  },
-  {
-    id: "svc-6",
-    name: "Instalación eléctrica",
-    description: "Electricista certificado para instalaciones y reparaciones.",
-    category: "hogar",
-    priceFromCents: 70000,
-    rating: 4.4,
-    providerName: "ElectroHogar",
-  },
-];
+/** A service as returned by the backend (`GET /api/services`). */
+interface ApiService {
+  _id: string;
+  name: string;
+  description: string;
+  category: ServiceCategory;
+  priceFromCents: number;
+  rating: number;
+  providerName: string;
+}
+
+interface ServicesResponse {
+  data: ApiService[];
+  meta: unknown;
+}
+
+/** Maps the API shape (`_id`, Mongo fields) to the domain `Service` (`id`). */
+function toService(api: ApiService): Service {
+  return {
+    id: api._id,
+    name: api.name,
+    description: api.description,
+    category: api.category,
+    priceFromCents: api.priceFromCents,
+    rating: api.rating,
+    providerName: api.providerName,
+  };
+}
 
 /**
- * Returns the service catalog.
+ * Fetches the service catalog from the backend.
  *
- * NOTE: mocked for now — waits and returns in-memory data. When the real API
- * lands, only this function changes; the query hook and screen stay the same.
+ * Requests a large page size so the screen gets the full catalog for now
+ * (pagination params are available server-side for future use). Signature is
+ * unchanged (`Promise<Service[]>`), so the query hook and screen are untouched.
  */
 export async function getServices(): Promise<Service[]> {
-  await new Promise((resolve) => setTimeout(resolve, MOCK_NETWORK_DELAY_MS));
-  return MOCK_SERVICES;
+  const { data } = await apiClient.get<ServicesResponse>("/api/services", {
+    params: { limit: 100 },
+  });
+  return data.data.map(toService);
 }
