@@ -62,8 +62,8 @@ describe("useServicesQuery", () => {
       wrapper: createWrapper(),
     });
 
-    expect(result.current.isPending).toBe(true);
-
+    // The initial pending state is covered reliably by the screen test
+    // (catalog-loading); asserting it here races with the mock resolving.
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(SERVICES);
     expect(mockGetServices).toHaveBeenCalledTimes(1);
