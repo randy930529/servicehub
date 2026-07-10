@@ -19,7 +19,7 @@ model, a paginated `GET /api/services`, and OpenAPI/Swagger docs.
 ```bash
 cd server
 pnpm install
-cp .env.example .env.local   # then set MONGODB_URI
+cp .env.example .env.local   # then set NEXT_MONGODB_URI
 pnpm seed                    # load the sample catalog into MongoDB
 pnpm dev                     # http://localhost:3000
 ```
@@ -27,26 +27,32 @@ pnpm dev                     # http://localhost:3000
 `.env.local` (git-ignored) holds the connection string:
 
 ```
-MONGODB_URI=mongodb://127.0.0.1:27017/servicehub
+NEXT_MONGODB_URI=mongodb://127.0.0.1:27017/servicehub
 # or an Atlas URI: mongodb+srv://<user>:<pass>@<cluster>/servicehub
 ```
 
 ## Endpoints
 
-| Method | Path                 | Description                                  |
-| ------ | -------------------- | -------------------------------------------- |
-| GET    | `/api/services`      | Paginated catalog (`?page`, `?limit`)        |
-| GET    | `/api/openapi.json`  | Generated OpenAPI 3 document                 |
-| —      | `/api-doc`           | Swagger UI (interactive docs)                |
+| Method | Path                | Description                           |
+| ------ | ------------------- | ------------------------------------- |
+| GET    | `/api/services`     | Paginated catalog (`?page`, `?limit`) |
+| GET    | `/api/openapi.json` | Generated OpenAPI 3 document          |
+| —      | `/api-doc`          | Swagger UI (interactive docs)         |
 
 Response shape of `GET /api/services`:
 
 ```json
 {
-  "data": [ /* Service[] */ ],
+  "data": [
+    /* Service[] */
+  ],
   "meta": {
-    "page": 1, "limit": 10, "total": 6,
-    "totalPages": 1, "hasNextPage": false, "hasPrevPage": false
+    "page": 1,
+    "limit": 10,
+    "total": 6,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
   }
 }
 ```
@@ -57,21 +63,26 @@ defaults.
 ## Structure
 
 ```
-src/
-  app/
-    api/
-      services/route.ts      # GET /api/services (paginated)
-      openapi.json/route.ts  # serves the generated spec
-    api-doc/                 # Swagger UI page
+app/
+  api/
+    services/route.ts        # GET /api/services (paginated)
+    openapi.json/route.ts    # serves the generated spec
+  api-doc/                   # Swagger UI page
   lib/
+    definitions/             # shared types (pagination)
+    helpers/
+      pagination.ts          # pure pagination helpers (unit-tested)
+      seed-data.ts           # sample catalog (mirrors the app's mock)
+    models/
+      service.ts             # Mongoose Service model
+    scripts/
+      seed.ts                # `pnpm seed`
+    utils/
+      environment.ts         # env parsing helpers
     mongoose.ts              # cached inline MongoDB connection
-    pagination.ts            # pure pagination helpers (unit-tested)
     swagger.ts               # OpenAPI spec (swagger-jsdoc)
-    seed-data.ts             # sample catalog (mirrors the app's mock)
-  models/
-    service.ts               # Mongoose Service model
-  scripts/
-    seed.ts                  # `pnpm seed`
+__tests__/
+  pagination.test.ts         # unit tests (node:test via tsx)
 ```
 
 ## Scripts

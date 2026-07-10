@@ -54,6 +54,6 @@ export function getOpenApiSpec() {
       },
     },
     // Scanned relative to the server package root (cwd of `next dev`/`build`).
-    apis: ["./src/app/api/**/*.ts"],
+    apis: ["./app/api/**/*.ts"],
   });
 }

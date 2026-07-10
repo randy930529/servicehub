@@ -28,10 +28,10 @@ globalThis._mongooseCache = cache;
 export async function connectToDatabase(): Promise<typeof mongoose> {
   if (cache.conn) return cache.conn;
 
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.NEXT_MONGODB_URI;
   if (!uri) {
     throw new Error(
-      "Missing MONGODB_URI. Add it to server/.env.local (see .env.example).",
+      "Missing NEXT_MONGODB_URI. Add it to server/.env.local (see .env.example).",
     );
   }
 
