@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx src/scripts/seed.ts",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "seed": "tsx app/lib/scripts/seed.ts",
+    "test": "node --import tsx --test \"__tests__/**/*.test.ts\""
   },
   "dependencies": {
     "mongoose": "9.7.4",

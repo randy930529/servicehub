@@ -63,21 +63,26 @@ defaults.
 ## Structure
 
 ```
-src/
-  app/
-    api/
-      services/route.ts      # GET /api/services (paginated)
-      openapi.json/route.ts  # serves the generated spec
-    api-doc/                 # Swagger UI page
+app/
+  api/
+    services/route.ts        # GET /api/services (paginated)
+    openapi.json/route.ts    # serves the generated spec
+  api-doc/                   # Swagger UI page
   lib/
+    definitions/             # shared types (pagination)
+    helpers/
+      pagination.ts          # pure pagination helpers (unit-tested)
+      seed-data.ts           # sample catalog (mirrors the app's mock)
+    models/
+      service.ts             # Mongoose Service model
+    scripts/
+      seed.ts                # `pnpm seed`
+    utils/
+      environment.ts         # env parsing helpers
     mongoose.ts              # cached inline MongoDB connection
-    pagination.ts            # pure pagination helpers (unit-tested)
     swagger.ts               # OpenAPI spec (swagger-jsdoc)
-    seed-data.ts             # sample catalog (mirrors the app's mock)
-  models/
-    service.ts               # Mongoose Service model
-  scripts/
-    seed.ts                  # `pnpm seed`
+__tests__/
+  pagination.test.ts         # unit tests (node:test via tsx)
 ```
 
 ## Scripts
