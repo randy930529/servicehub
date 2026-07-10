@@ -1,4 +1,4 @@
-import type { ServiceCategory } from "@/models/service";
+import { ServiceCategory } from "@/app/lib/models/service";
 
 export interface SeedService {
   name: string;

@@ -1,23 +1,9 @@
-/**
- * Pure pagination helpers — no DB or framework deps, so they're trivially
- * unit-testable.
- */
+import { PaginationMeta, PaginationParams } from "@/app/lib/definitions";
+import { envInt } from "@/app/lib/utils";
 
-export const DEFAULT_PAGE = 1;
-export const DEFAULT_LIMIT = 10;
-export const MAX_LIMIT = 100;
-
-export interface PaginationParams {
-  page: number;
-  limit: number;
-}
-
-export interface PaginationMeta extends PaginationParams {
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
+export const DEFAULT_PAGE = envInt("NEXT_DEFAULT_PAGE", 1, 1);
+export const DEFAULT_LIMIT = envInt("NEXT_DEFAULT_LIMIT", 10, 1);
+export const MAX_LIMIT = envInt("NEXT_MAX_LIMIT", 100, 1);
 
 /**
  * Parses raw `page`/`limit` query params into safe, bounded integers.
@@ -53,7 +39,10 @@ export function buildMeta(
   };
 }
 
-function toPositiveInt(value: string | null | undefined, fallback: number): number {
+function toPositiveInt(
+  value: string | null | undefined,
+  fallback: number,
+): number {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }

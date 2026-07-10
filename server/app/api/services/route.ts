@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
+import {
+  buildMeta,
+  getSkip,
+  parsePagination,
+} from "@/app/lib/helpers/pagination";
 import { Service } from "@/app/lib/models/service";
 import { connectToDatabase } from "@/app/lib/mongoose";
-import { buildMeta, getSkip, parsePagination } from "@/app/lib/pagination";
 
 // Mongoose needs the Node.js runtime (not Edge), and results depend on the
 // query string, so the route is always dynamic.
