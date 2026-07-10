@@ -11,20 +11,20 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "mongoose": "9.7.3",
-    "next": "14.2.35",
-    "react": "18",
-    "react-dom": "18",
+    "mongoose": "9.7.4",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "swagger-ui-react": "5.32.8"
   },
   "devDependencies": {
-    "@types/node": "20",
-    "@types/react": "18",
-    "@types/react-dom": "18",
+    "@types/node": "20.19.43",
+    "@types/react": "19",
+    "@types/react-dom": "19.2.3",
     "@types/swagger-jsdoc": "6.0.4",
     "@types/swagger-ui-react": "5.18.0",
-    "eslint": "8",
-    "eslint-config-next": "14.2.35",
+    "eslint": "10.6.0",
+    "eslint-config-next": "16.2.10",
     "swagger-jsdoc": "6.3.0",
     "tsx": "4.23.0",
     "typescript": "5"
