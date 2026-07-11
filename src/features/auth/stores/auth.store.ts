@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 
+import { setAuthTokenProvider } from "@/shared/lib/api-client";
+
 const TOKEN_KEY = "sh_auth_token";
 
 type AuthState = {
@@ -30,3 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token, isHydrated: true });
   },
 }));
+
+// Let the shared API client read the session token without shared/ having to
+// import this feature (dependency rule: features → shared, never the reverse).
+setAuthTokenProvider(() => useAuthStore.getState().token);
