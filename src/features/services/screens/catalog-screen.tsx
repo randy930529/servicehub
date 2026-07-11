@@ -5,11 +5,20 @@ import { ThemedText } from "@/shared/components/themed-text";
 import { ThemedView } from "@/shared/components/themed-view";
 import { Button } from "@/shared/components/ui/button";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/shared/constants/theme";
+import { ApiError } from "@/shared/lib/api-error";
 import { ServiceCard } from "../components/service-card";
 import { useServicesQuery } from "../queries/use-services-query";
 
+function errorHint(error: unknown): string {
+  if (error instanceof ApiError && error.kind === "network") {
+    return "Revisa tu conexión e inténtalo de nuevo.";
+  }
+  return "Estamos teniendo problemas con el servidor. Inténtalo más tarde.";
+}
+
 export function CatalogScreen() {
-  const { data, isPending, isError, refetch, isFetching } = useServicesQuery();
+  const { data, isPending, isError, error, refetch, isFetching } =
+    useServicesQuery();
 
   return (
     <ThemedView style={styles.container}>
@@ -33,7 +42,7 @@ export function CatalogScreen() {
               themeColor="textSecondary"
               style={styles.errorHint}
             >
-              Revisa tu conexión e inténtalo de nuevo.
+              {errorHint(error)}
             </ThemedText>
             <Button
               label="Reintentar"
