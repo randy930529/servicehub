@@ -9,7 +9,7 @@ import process from "node:process";
 import mongoose from "mongoose";
 
 import { SEED_SERVICES } from "../helpers/seed-data";
-import { Service } from "../models/service";
+import { Service } from "../models";
 
 // `loadEnvFile` exists at runtime (Node 20.12+) but may be missing from the
 // installed @types/node, so we access it through a narrow cast.
@@ -17,7 +17,13 @@ function loadLocalEnv() {
   const proc = process as typeof process & {
     loadEnvFile?: (path?: string) => void;
   };
-  proc.loadEnvFile?.(".env.local");
+  // Missing .env.local is fine: in Docker/CI the env is injected into the
+  // process (loadEnvFile throws ENOENT when the file isn't there).
+  try {
+    proc.loadEnvFile?.(".env.local");
+  } catch {
+    // fall through to whatever is already in process.env
+  }
 }
 
 async function seed() {

@@ -1,0 +1,19 @@
+# Dev override: hot-reload the API with `next dev` and bind-mount the source.
+# Use alongside the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Edits under server/ reload live. node_modules stays in an anonymous volume
+# so the container's Linux deps aren't clobbered by the host (Windows) copy.
+
+services:
+  server:
+    build:
+      context: ./server
+      target: dev
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
