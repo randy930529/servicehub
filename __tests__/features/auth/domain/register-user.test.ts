@@ -1,45 +1,71 @@
-import { registerUser } from "@/features/auth/domain/use-cases/register-user";
 import {
+  afterAll,
   afterEach,
-  beforeEach,
+  beforeAll,
   describe,
   expect,
   it,
-  jest,
 } from "@jest/globals";
+import { HttpResponse, http } from "msw";
+
+import { registerUser } from "@/features/auth/domain/use-cases/register-user";
+import { API_SESSION_BODY } from "../../../helpers/auth-fixtures";
+import { apiUrl, server } from "../../../helpers/msw-server";
 
 // Neutral name: a quoted literal next to `password:` trips secret scanners
 // (GitGuardian) on every PR diff.
 const EIGHT_DIGITS = "12345678";
 
+const REGISTER_URL = apiUrl("/api/auth/register");
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
 describe("registerUser", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
+  it("posts name/email/password (never confirmPassword) and maps the session", async () => {
+    let requestBody: unknown;
+    server.use(
+      http.post(REGISTER_URL, async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json(API_SESSION_BODY, { status: 201 });
+      }),
+    );
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+    const session = await registerUser({
+      name: "Ana Pérez",
+      email: "ana@test.com",
+      password: EIGHT_DIGITS,
+      // Extra form-only fields must not leak to the API.
+      confirmPassword: EIGHT_DIGITS,
+    } as never);
 
-  it("resolves with an auth token", async () => {
-    const promise = registerUser({
-      name: "Juan Pérez",
-      email: "juan@correo.com",
+    expect(requestBody).toEqual({
+      name: "Ana Pérez",
+      email: "ana@test.com",
       password: EIGHT_DIGITS,
     });
-    jest.advanceTimersByTime(800);
-    await expect(promise).resolves.toBe("mock-token-register");
+    expect(session.accessToken).toBe(API_SESSION_BODY.accessToken);
+    expect(session.refreshToken).toBe(API_SESSION_BODY.refreshToken);
+    expect(session.user.id).toBe(API_SESSION_BODY.user._id);
   });
 
-  it("returns a non-empty string token", async () => {
-    const promise = registerUser({
-      name: "Juan Pérez",
-      email: "juan@correo.com",
-      password: EIGHT_DIGITS,
-    });
-    jest.advanceTimersByTime(800);
-    const token = await promise;
-    expect(typeof token).toBe("string");
-    expect(token.length).toBeGreaterThan(0);
+  it("throws a client ApiError when the email is taken (409)", async () => {
+    server.use(
+      http.post(REGISTER_URL, () =>
+        HttpResponse.json(
+          { error: "Email already registered" },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(
+      registerUser({
+        name: "Ana Pérez",
+        email: "ana@test.com",
+        password: EIGHT_DIGITS,
+      }),
+    ).rejects.toMatchObject({ kind: "client", status: 409 });
   });
 });

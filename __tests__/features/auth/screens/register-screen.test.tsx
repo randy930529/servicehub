@@ -8,19 +8,35 @@ import {
 } from "@testing-library/react-native";
 
 const mockLogin = jest.fn();
+const mockRegisterUser = jest.fn<(data: unknown) => Promise<unknown>>();
 
 // Dummy values with neutral, length-based names: quoted literals typed into
 // password fields trigger secret scanners (GitGuardian) on every PR diff.
 const EIGHT_DIGITS = "12345678";
 const OTHER_TEXT = "diferente";
 
+// What the (mocked) use-case resolves with: a full session, not a bare token.
+const FAKE_SESSION = {
+  user: { id: "u1", name: "Juan Pérez", email: "juan@correo.com" },
+  accessToken: "stub-access-1",
+  refreshToken: "stub-refresh-1",
+};
+
 jest.mock("@/features/auth/stores/auth.store", () => ({
   useAuthStore: () => ({ login: mockLogin }),
+}));
+
+// The real use-case hits the network; screen tests only care that the screen
+// wires form → use-case → store.
+jest.mock("@/features/auth/domain/use-cases", () => ({
+  registerUser: (data: unknown) => mockRegisterUser(data),
 }));
 
 describe("RegisterScreen", () => {
   beforeEach(() => {
     mockLogin.mockClear();
+    mockRegisterUser.mockReset();
+    mockRegisterUser.mockResolvedValue(FAKE_SESSION);
   });
 
   test("renders all form fields", async () => {
@@ -92,7 +108,7 @@ describe("RegisterScreen", () => {
     fireEvent.press(await screen.findByTestId("register-submit-button"));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith("mock-token-register");
+      expect(mockLogin).toHaveBeenCalledWith(FAKE_SESSION);
     });
   });
 });

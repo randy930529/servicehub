@@ -1,17 +1,21 @@
-import type { AuthToken, RegistrationData } from "../types";
+import { apiClient } from "@/shared/lib/api-client";
 
-/** Simulated network latency until the real auth API exists. */
-const MOCK_NETWORK_DELAY_MS = 800;
+import type { AuthSession, RegistrationData } from "../types";
+import { toAuthSession, type ApiSessionResponse } from "./api-session";
 
 /**
- * Creates a new account and returns an auth token for the new session.
+ * Creates a new account (`POST /api/auth/register`) and returns the session
+ * for the freshly created user — registering also signs you in.
  *
- * NOTE: mocked for now — it just waits and returns a fake token. When the real
- * backend lands, only this function changes; screens and stores stay the same.
+ * Failures surface as `ApiError` (409 = email already registered).
  */
 export async function registerUser(
-  _data: RegistrationData,
-): Promise<AuthToken> {
-  await new Promise((resolve) => setTimeout(resolve, MOCK_NETWORK_DELAY_MS));
-  return "mock-token-register";
+  data: RegistrationData,
+): Promise<AuthSession> {
+  const { name, email, password } = data;
+  const { data: body } = await apiClient.post<ApiSessionResponse>(
+    "/api/auth/register",
+    { name, email, password },
+  );
+  return toAuthSession(body);
 }

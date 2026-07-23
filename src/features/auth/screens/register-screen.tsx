@@ -14,6 +14,7 @@ import { ThemedView } from "@/shared/components/themed-view";
 import { Button } from "@/shared/components/ui/button";
 import { TextInput } from "@/shared/components/ui/text-input";
 import { Spacing } from "@/shared/constants/theme";
+import { ApiError } from "@/shared/lib/api-error";
 import { registerUser } from "../domain/use-cases";
 import { RegisterSchema, type RegisterForm } from "../validation/auth.schema";
 import { useAuthStore } from "../stores/auth.store";
@@ -26,6 +27,7 @@ export function RegisterScreen() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(RegisterSchema),
@@ -33,9 +35,18 @@ export function RegisterScreen() {
   });
 
   async function onSubmit(data: RegisterForm) {
-    const token = await registerUser(data);
-    await login(token);
-    router.replace("/");
+    try {
+      const session = await registerUser(data);
+      await login(session);
+      router.replace("/");
+    } catch (error) {
+      setError("root", {
+        message:
+          error instanceof ApiError && error.status === 409
+            ? "Este correo ya está registrado"
+            : "No pudimos crear tu cuenta. Inténtalo de nuevo.",
+      });
+    }
   }
 
   return (
@@ -134,6 +145,16 @@ export function RegisterScreen() {
             )}
           />
 
+          {errors.root?.message ? (
+            <ThemedText
+              type="small"
+              style={styles.serverError}
+              testID="register-server-error"
+            >
+              {errors.root.message}
+            </ThemedText>
+          ) : null}
+
           <Button
             label="Crear cuenta"
             testID="register-submit-button"
@@ -182,6 +203,10 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
+  },
+  serverError: {
+    // Same error red as the UI kit's TextInput.
+    color: "#ef4444",
   },
   footer: {
     gap: Spacing.two,
