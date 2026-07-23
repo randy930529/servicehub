@@ -1,37 +1,67 @@
-import { loginUser } from "@/features/auth/domain/use-cases/login-user";
 import {
+  afterAll,
   afterEach,
-  beforeEach,
+  beforeAll,
   describe,
   expect,
   it,
-  jest,
 } from "@jest/globals";
+import { HttpResponse, http } from "msw";
+
+import { loginUser } from "@/features/auth/domain/use-cases/login-user";
+import { ApiError } from "@/shared/lib/api-error";
+import { API_SESSION_BODY } from "../../../helpers/auth-fixtures";
+import { apiUrl, server } from "../../../helpers/msw-server";
 
 // Neutral name: a quoted literal next to `password:` trips secret scanners
 // (GitGuardian) on every PR diff.
 const SIX_DIGITS = "123456";
 
+const LOGIN_URL = apiUrl("/api/auth/login");
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
 describe("loginUser", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
+  it("posts the credentials and maps the session", async () => {
+    let requestBody: unknown;
+    server.use(
+      http.post(LOGIN_URL, async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json(API_SESSION_BODY);
+      }),
+    );
+
+    const session = await loginUser({
+      email: "ana@test.com",
+      password: SIX_DIGITS,
+    });
+
+    expect(requestBody).toEqual({
+      email: "ana@test.com",
+      password: SIX_DIGITS,
+    });
+    expect(session).toEqual({
+      user: { id: API_SESSION_BODY.user._id, name: "Ana Pérez", email: "ana@test.com" },
+      accessToken: API_SESSION_BODY.accessToken,
+      refreshToken: API_SESSION_BODY.refreshToken,
+    });
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+  it("throws a client ApiError on wrong credentials (401)", async () => {
+    server.use(
+      http.post(LOGIN_URL, () =>
+        HttpResponse.json({ error: "Invalid credentials" }, { status: 401 }),
+      ),
+    );
 
-  it("resolves with an auth token", async () => {
-    const promise = loginUser({ email: "a@b.com", password: SIX_DIGITS });
-    jest.advanceTimersByTime(800);
-    await expect(promise).resolves.toBe("mock-token-login");
-  });
+    const promise = loginUser({ email: "ana@test.com", password: SIX_DIGITS });
 
-  it("returns a non-empty string token", async () => {
-    const promise = loginUser({ email: "a@b.com", password: SIX_DIGITS });
-    jest.advanceTimersByTime(800);
-    const token = await promise;
-    expect(typeof token).toBe("string");
-    expect(token.length).toBeGreaterThan(0);
+    await expect(promise).rejects.toBeInstanceOf(ApiError);
+    await expect(promise).rejects.toMatchObject({
+      kind: "client",
+      status: 401,
+    });
   });
 });

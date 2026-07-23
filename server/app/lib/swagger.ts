@@ -15,7 +15,38 @@ export function getOpenApiSpec() {
       },
       servers: [{ url: "/", description: "Local server" }],
       components: {
+        securitySchemes: {
+          bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+        },
         schemas: {
+          User: {
+            type: "object",
+            properties: {
+              _id: { type: "string", example: "665f1b2c9a1b2c3d4e5f6a7b" },
+              name: { type: "string", example: "Ana Pérez" },
+              email: { type: "string", format: "email" },
+            },
+          },
+          SessionResponse: {
+            type: "object",
+            properties: {
+              user: { $ref: "#/components/schemas/User" },
+              accessToken: {
+                type: "string",
+                description: "Short-lived JWT for the Authorization header.",
+              },
+              refreshToken: {
+                type: "string",
+                description:
+                  "Opaque single-use token to renew the session (rotated on refresh).",
+              },
+              expiresIn: {
+                type: "integer",
+                example: 900,
+                description: "Access-token lifetime in seconds.",
+              },
+            },
+          },
           Service: {
             type: "object",
             properties: {

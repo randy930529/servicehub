@@ -1,8 +1,10 @@
 # ServiceHub API (backend)
 
-Minimal backend for the ServiceHub services catalog — **Next.js 14** (App Router,
-API Routes) + **Mongoose** + **MongoDB**. Week 6 scope: DB connection, `Service`
-model, a paginated `GET /api/services`, and OpenAPI/Swagger docs.
+Minimal backend for ServiceHub — **Next.js** (App Router, API Routes) +
+**Mongoose** + **MongoDB**. Scope so far: DB connection, `Service` model, a
+paginated `GET /api/services`, OpenAPI/Swagger docs (week 6) and JWT auth with
+rotated refresh tokens (week 8, see `docs/security/auth-tokens.md` at the repo
+root).
 
 > Part of the `servicehub` monorepo. The mobile app lives in the repo root; this
 > backend lives in `server/` with its own `package.json`.
@@ -29,15 +31,38 @@ pnpm dev                     # http://localhost:3000
 ```
 NEXT_MONGODB_URI=mongodb://127.0.0.1:27017/servicehub
 # or an Atlas URI: mongodb+srv://<user>:<pass>@<cluster>/servicehub
+
+# JWT signing secret (required for the auth endpoints):
+NEXT_JWT_SECRET=<long random string>
 ```
 
 ## Endpoints
 
-| Method | Path                | Description                           |
-| ------ | ------------------- | ------------------------------------- |
-| GET    | `/api/services`     | Paginated catalog (`?page`, `?limit`) |
-| GET    | `/api/openapi.json` | Generated OpenAPI 3 document          |
-| —      | `/api-doc`          | Swagger UI (interactive docs)         |
+| Method | Path                 | Description                                     |
+| ------ | -------------------- | ----------------------------------------------- |
+| GET    | `/api/services`      | Paginated catalog (`?page`, `?limit`)           |
+| POST   | `/api/auth/register` | Create an account → session token pair          |
+| POST   | `/api/auth/login`    | Email + password → session token pair           |
+| POST   | `/api/auth/refresh`  | Rotate a refresh token → new token pair         |
+| POST   | `/api/auth/logout`   | Revoke a refresh token (idempotent, 204)        |
+| GET    | `/api/auth/me`       | Current user (requires `Authorization: Bearer`) |
+| GET    | `/api/openapi.json`  | Generated OpenAPI 3 document                    |
+| —      | `/api-doc`           | Swagger UI (interactive docs)                   |
+
+Auth endpoints return a `SessionResponse`:
+
+```json
+{
+  "user": { "_id": "…", "name": "…", "email": "…" },
+  "accessToken": "<JWT, expires in 15 min>",
+  "refreshToken": "<opaque single-use token, 30 days>",
+  "expiresIn": 900
+}
+```
+
+Access JWTs are signed with HS256 (`NEXT_JWT_SECRET`); refresh tokens are
+stored **hashed** (SHA-256) on the user and **rotated on every refresh** —
+each one works exactly once.
 
 Response shape of `GET /api/services`:
 
@@ -66,15 +91,26 @@ defaults.
 app/
   api/
     services/route.ts        # GET /api/services (paginated)
+    auth/
+      register/route.ts      # POST /api/auth/register
+      login/route.ts         # POST /api/auth/login
+      refresh/route.ts       # POST /api/auth/refresh (rotation)
+      logout/route.ts        # POST /api/auth/logout (revocation)
+      me/route.ts            # GET /api/auth/me (Bearer-protected)
     openapi.json/route.ts    # serves the generated spec
   api-doc/                   # Swagger UI page
   lib/
+    auth/
+      tokens.ts              # JWT sign/verify + refresh token gen/hash
+      passwords.ts           # bcrypt hash/verify
+      session.ts             # issueSession (rotation), Bearer parsing
     definitions/             # shared types (pagination)
     helpers/
       pagination.ts          # pure pagination helpers (unit-tested)
       seed-data.ts           # sample catalog (mirrors the app's mock)
     models/
       service.ts             # Mongoose Service model
+      user.ts                # Mongoose User model (+ hashed refresh tokens)
     scripts/
       seed.ts                # `pnpm seed`
     utils/
@@ -83,6 +119,8 @@ app/
     swagger.ts               # OpenAPI spec (swagger-jsdoc)
 __tests__/
   pagination.test.ts         # unit tests (node:test via tsx)
+  auth-tokens.test.ts        # JWT + refresh token helpers
+  auth-passwords.test.ts     # bcrypt helpers
 ```
 
 ## Scripts
@@ -98,7 +136,8 @@ pnpm seed     # reset + seed the catalog
 
 ## Testing
 
-- **Unit**: `pnpm test` runs pure-logic tests (pagination) with the Node test
-  runner via `tsx` — no DB required.
+- **Unit**: `pnpm test` runs pure-logic tests (pagination, JWT/refresh token
+  helpers, password hashing) with the Node test runner via `tsx` — no DB
+  required.
 - **Manual/API**: import `postman/servicehub.postman_collection.json` into
   Postman (base URL `http://localhost:3000`) to exercise the endpoints.
