@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  buildMeta,
-  getSkip,
-  parsePagination,
-} from "@/app/lib/helpers/pagination";
-import { Service } from "@/app/lib/models/service";
+import { buildMeta, getSkip, parsePagination } from "@/app/lib/helpers";
+import { Service } from "@/app/lib/models";
 import { connectToDatabase } from "@/app/lib/mongoose";
 
 // Mongoose needs the Node.js runtime (not Edge), and results depend on the

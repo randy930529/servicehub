@@ -14,6 +14,7 @@ import { ThemedView } from "@/shared/components/themed-view";
 import { Button } from "@/shared/components/ui/button";
 import { TextInput } from "@/shared/components/ui/text-input";
 import { Spacing } from "@/shared/constants/theme";
+import { ApiError } from "@/shared/lib/api-error";
 import { loginUser } from "../domain/use-cases";
 import { LoginSchema, type LoginForm } from "../validation/auth.schema";
 import { useAuthStore } from "../stores/auth.store";
@@ -26,6 +27,7 @@ export function LoginScreen() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(LoginSchema),
@@ -33,9 +35,18 @@ export function LoginScreen() {
   });
 
   async function onSubmit(data: LoginForm) {
-    const token = await loginUser(data);
-    await login(token);
-    router.replace("/");
+    try {
+      const session = await loginUser(data);
+      await login(session);
+      router.replace("/");
+    } catch (error) {
+      setError("root", {
+        message:
+          error instanceof ApiError && error.status === 401
+            ? "Correo o contraseña incorrectos"
+            : "No pudimos iniciar sesión. Inténtalo de nuevo.",
+      });
+    }
   }
 
   return (
@@ -99,6 +110,16 @@ export function LoginScreen() {
             )}
           />
 
+          {errors.root?.message ? (
+            <ThemedText
+              type="small"
+              style={styles.serverError}
+              testID="login-server-error"
+            >
+              {errors.root.message}
+            </ThemedText>
+          ) : null}
+
           <Button
             label="Ingresar"
             testID="login-submit-button"
@@ -160,6 +181,10 @@ const styles = StyleSheet.create({
   },
   centered: {
     alignSelf: "center",
+  },
+  serverError: {
+    // Same error red as the UI kit's TextInput.
+    color: "#ef4444",
   },
   footer: {
     gap: Spacing.two,

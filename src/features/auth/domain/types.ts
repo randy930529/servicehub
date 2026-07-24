@@ -21,7 +21,24 @@ export interface RegistrationData {
 /** Opaque token returned by the backend after a successful authentication. */
 export type AuthToken = string;
 
-/** Result of an authentication use-case. */
-export interface AuthSession {
-  token: AuthToken;
+/** The authenticated user, as the backend exposes it. */
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
 }
+
+/**
+ * Result of an authentication use-case (login/register/refresh):
+ *
+ * - `accessToken` — short-lived JWT sent as `Authorization: Bearer`.
+ * - `refreshToken` — long-lived, single-use token to renew the session.
+ */
+export interface AuthSession {
+  user: AuthUser;
+  accessToken: AuthToken;
+  refreshToken: AuthToken;
+}
+
+/** Just the renewable part of a session (what a refresh returns). */
+export type SessionTokens = Pick<AuthSession, "accessToken" | "refreshToken">;

@@ -8,7 +8,7 @@ import {
   buildMeta,
   getSkip,
   parsePagination,
-} from "../app/lib/helpers/pagination";
+} from "../app/lib/helpers";
 
 describe("parsePagination", () => {
   it("uses defaults when params are missing", () => {

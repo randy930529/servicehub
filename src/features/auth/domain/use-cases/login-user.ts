@@ -1,15 +1,20 @@
-import type { AuthToken, Credentials } from "../types";
+import { apiClient } from "@/shared/lib/api-client";
 
-/** Simulated network latency until the real auth API exists. */
-const MOCK_NETWORK_DELAY_MS = 800;
+import type { AuthSession, Credentials } from "../types";
+import { toAuthSession, type ApiSessionResponse } from "./api-session";
 
 /**
- * Authenticates a user with email + password and returns an auth token.
+ * Authenticates a user with email + password against the backend
+ * (`POST /api/auth/login`) and returns the session (user + token pair).
  *
- * NOTE: mocked for now — it just waits and returns a fake token. When the real
- * backend lands, only this function changes; screens and stores stay the same.
+ * Failures surface as `ApiError` (401 = wrong credentials).
  */
-export async function loginUser(_credentials: Credentials): Promise<AuthToken> {
-  await new Promise((resolve) => setTimeout(resolve, MOCK_NETWORK_DELAY_MS));
-  return "mock-token-login";
+export async function loginUser(
+  credentials: Credentials,
+): Promise<AuthSession> {
+  const { data } = await apiClient.post<ApiSessionResponse>(
+    "/api/auth/login",
+    credentials,
+  );
+  return toAuthSession(data);
 }
