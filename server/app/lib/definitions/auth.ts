@@ -17,6 +17,13 @@ export type PublicUserType = {
   _id: string;
   name: string;
   email: string;
+  bio: string;
+  phone: string;
+  /**
+   * Absolute URL of the avatar, derived from the stored object key, or `null`
+   * when the user hasn't uploaded one. The key itself stays server-side.
+   */
+  avatarUrl: string | null;
 };
 
 /** Body returned by every endpoint that opens/renews a session. */

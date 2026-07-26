@@ -1,17 +1,28 @@
 import type { HydratedDocument } from "mongoose";
 
 import { PublicUserType, SessionResponseType } from "@/app/lib/definitions";
-import type { UserDocument } from "@/app/lib/models/user";
+import { User, type UserDocument } from "@/app/lib/models";
+import { connectToDatabase } from "@/app/lib/mongoose";
+import { buildAvatarUrl } from "@/app/lib/storage";
 import {
   generateRefreshToken,
   getAccessTokenTtlSeconds,
   signAccessToken,
+  verifyAccessToken,
 } from "./tokens";
 
 export function toPublicUser(
   user: HydratedDocument<UserDocument>,
 ): PublicUserType {
-  return { _id: user.id, name: user.name, email: user.email };
+  return {
+    _id: user.id,
+    name: user.name,
+    email: user.email,
+    bio: user.bio ?? "",
+    phone: user.phone ?? "",
+    // Derived from the stored key — the key itself never leaves the server.
+    avatarUrl: buildAvatarUrl(user.avatarKey),
+  };
 }
 
 /**
@@ -61,4 +72,34 @@ export function getBearerToken(request: Request): string | null {
   const [scheme, token] = header.split(" ");
   if (scheme?.toLowerCase() !== "bearer" || !token) return null;
   return token;
+}
+
+/**
+ * Result of authenticating a request: either the user document, or why it
+ * failed. `missing` and `invalid` are both answered with a 401 but carry
+ * different messages.
+ */
+export type AuthResultType =
+  | { ok: true; user: HydratedDocument<UserDocument> }
+  | { ok: false; reason: "missing" | "invalid" };
+
+/**
+ * Bearer-token guard shared by every protected endpoint: verifies the access
+ * JWT and loads the user it points at. A token that is well-formed but whose
+ * user no longer exists is treated as invalid, not as a 404.
+ */
+export async function authenticateRequest(
+  request: Request,
+): Promise<AuthResultType> {
+  const token = getBearerToken(request);
+  if (!token) return { ok: false, reason: "missing" };
+
+  const claims = await verifyAccessToken(token);
+  if (!claims) return { ok: false, reason: "invalid" };
+
+  await connectToDatabase();
+  const user = await User.findById(claims.sub);
+  if (!user) return { ok: false, reason: "invalid" };
+
+  return { ok: true, user };
 }
