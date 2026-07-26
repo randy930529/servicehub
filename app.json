@@ -41,7 +41,15 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ServiceHub accede a tus fotos para que elijas tu foto de perfil.",
+          "cameraPermission": "ServiceHub accede a tu cámara para que tomes tu foto de perfil.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

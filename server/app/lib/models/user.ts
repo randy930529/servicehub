@@ -30,6 +30,16 @@ const userSchema = new Schema(
     },
     /** bcrypt hash — the plain password is never persisted. */
     passwordHash: { type: String, required: true },
+    /** Short self-description shown on the profile screen. */
+    bio: { type: String, trim: true, default: "" },
+    /** Contact phone. Free-form: formats vary too much per country to enforce. */
+    phone: { type: String, trim: true, default: "" },
+    /**
+     * Object key of the avatar inside the storage bucket (e.g.
+     * `avatars/<userId>/<uuid>.jpg`). The public URL is derived from it at
+     * read time so moving buckets/CDNs never requires a data migration.
+     */
+    avatarKey: { type: String, default: null },
     /** Active sessions (one per device); pruned of expired entries on refresh. */
     refreshTokens: { type: [refreshTokenSchema], default: [] },
   },

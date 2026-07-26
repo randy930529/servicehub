@@ -25,6 +25,40 @@ export function getOpenApiSpec() {
               _id: { type: "string", example: "665f1b2c9a1b2c3d4e5f6a7b" },
               name: { type: "string", example: "Ana Pérez" },
               email: { type: "string", format: "email" },
+              bio: {
+                type: "string",
+                example: "Electricista con 10 años de experiencia.",
+              },
+              phone: { type: "string", example: "+52 33 1234 5678" },
+              avatarUrl: {
+                type: "string",
+                nullable: true,
+                description:
+                  "Absolute URL derived from the stored object key; null when the user has no avatar.",
+                example:
+                  "http://localhost:9000/avatars/665f1b2c9a1b2c3d4e5f6a7b/a1b2.jpg",
+              },
+            },
+          },
+          ValidationError: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["VALIDATION_ERROR", "BODY_ERROR", "UNKNOWN_ERROR"],
+              },
+              message: { type: "string", example: "Invalid body" },
+              errors: {
+                type: "object",
+                nullable: true,
+                description:
+                  "Zod issues keyed by field path. Object-level issues use the `_` key.",
+                additionalProperties: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                example: { name: ["Too small: expected string to have >=2 characters"] },
+              },
             },
           },
           SessionResponse: {

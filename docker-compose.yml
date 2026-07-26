@@ -1,4 +1,4 @@
-# ServiceHub backend stack: Next.js API (server/) + MongoDB.
+# ServiceHub backend stack: Next.js API (server/) + MongoDB + MinIO (avatars).
 # The Expo app runs on the host (pnpm start) and talks to the API at
 # http://localhost:3000 — which is already the default in api-config.ts.
 #
@@ -6,6 +6,10 @@
 #   docker compose logs -f server       # follow API logs
 #   docker compose exec server pnpm seed   # seed the services catalog
 #   docker compose down                 # stop (add -v to also wipe Mongo data)
+#
+# MinIO (S3-compatible object storage) serves the avatar bucket:
+#   API      http://localhost:9000
+#   Console  http://localhost:9001   (login with MINIO_ROOT_USER/PASSWORD)
 
 services:
   mongo:
@@ -22,6 +26,46 @@ services:
       retries: 5
       start_period: 20s
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      # 9000 must stay reachable from the device/emulator: presigned upload URLs
+      # are signed for this host, so the app PUTs the file straight here.
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-servicehub}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-servicehub-dev-secret}
+    volumes:
+      - minio-data:/data
+
+  # One-shot: create the avatars bucket and make its objects world-readable, so
+  # a stored avatar can be rendered from a plain URL (no presigned GET needed).
+  # Uploads stay authenticated — only reads are anonymous.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-servicehub}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-servicehub-dev-secret}
+      BUCKET: ${MINIO_BUCKET:-avatars}
+    # `$$` escapes the dollar so compose passes it through and the container's
+    # shell expands it, instead of compose substituting it on the host.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          echo 'waiting for minio...'
+          sleep 2
+        done
+        mc mb --ignore-existing "local/$$BUCKET"
+        mc anonymous set download "local/$$BUCKET"
+        echo "minio ready: bucket $$BUCKET is created and publicly readable"
+
   server:
     build:
       context: ./server
@@ -35,9 +79,22 @@ services:
       # Override the host-oriented URI from .env.local: inside the compose
       # network the DB is reachable at the "mongo" service name, not 127.0.0.1.
       NEXT_MONGODB_URI: mongodb://mongo:27017/servicehub
+      # Same idea for storage: the server talks to MinIO over the compose
+      # network, but presigned URLs must be signed for the *public* endpoint
+      # the app can actually reach (SigV4 signs the Host header).
+      NEXT_S3_ENDPOINT: http://minio:9000
+      # Override for an Android emulator (http://10.0.2.2:9000) or a physical
+      # device (http://<LAN-IP>:9000) by exporting MINIO_PUBLIC_ENDPOINT.
+      NEXT_S3_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      NEXT_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-servicehub}
+      NEXT_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-servicehub-dev-secret}
+      NEXT_S3_BUCKET: ${MINIO_BUCKET:-avatars}
     depends_on:
       mongo:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
 volumes:
   mongo-data:
+  minio-data:
