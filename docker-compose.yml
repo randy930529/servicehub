@@ -7,7 +7,8 @@
 #   docker compose exec server pnpm seed   # seed the services catalog
 #   docker compose down                 # stop (add -v to also wipe Mongo data)
 #
-# MinIO (S3-compatible object storage) serves the avatar bucket:
+# MinIO (S3-compatible object storage) serves the image buckets (avatars,
+# service-images):
 #   API      http://localhost:9000
 #   Console  http://localhost:9001   (login with MINIO_ROOT_USER/PASSWORD)
 
@@ -41,8 +42,8 @@ services:
     volumes:
       - minio-data:/data
 
-  # One-shot: create the avatars bucket and make its objects world-readable, so
-  # a stored avatar can be rendered from a plain URL (no presigned GET needed).
+  # One-shot: create the image buckets and make their objects world-readable, so
+  # a stored image can be rendered from a plain URL (no presigned GET needed).
   # Uploads stay authenticated — only reads are anonymous.
   minio-init:
     image: minio/mc:latest
@@ -51,7 +52,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-servicehub}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-servicehub-dev-secret}
-      BUCKET: ${MINIO_BUCKET:-avatars}
+      # Space-separated: avatars and service photos live in separate buckets so
+      # retention/quota policies can diverge without touching the code.
+      BUCKETS: >-
+        ${MINIO_BUCKET:-avatars}
+        ${MINIO_SERVICE_IMAGES_BUCKET:-service-images}
     # `$$` escapes the dollar so compose passes it through and the container's
     # shell expands it, instead of compose substituting it on the host.
     entrypoint:
@@ -62,9 +67,11 @@ services:
           echo 'waiting for minio...'
           sleep 2
         done
-        mc mb --ignore-existing "local/$$BUCKET"
-        mc anonymous set download "local/$$BUCKET"
-        echo "minio ready: bucket $$BUCKET is created and publicly readable"
+        for bucket in $$BUCKETS; do
+          mc mb --ignore-existing "local/$$bucket"
+          mc anonymous set download "local/$$bucket"
+          echo "minio ready: bucket $$bucket is created and publicly readable"
+        done
 
   server:
     build:
@@ -89,6 +96,7 @@ services:
       NEXT_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-servicehub}
       NEXT_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-servicehub-dev-secret}
       NEXT_S3_BUCKET: ${MINIO_BUCKET:-avatars}
+      NEXT_S3_SERVICE_IMAGES_BUCKET: ${MINIO_SERVICE_IMAGES_BUCKET:-service-images}
     depends_on:
       mongo:
         condition: service_healthy

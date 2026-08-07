@@ -25,12 +25,10 @@ export interface ProfileUpdate {
 
 /**
  * An image already cropped and compressed on-device, ready to be uploaded.
- * `contentType` has to match what the presigned URL is signed for.
+ * Owned by `shared/lib/image-picker` (avatars and service photos share it);
+ * re-exported here so the feature's public API stays self-contained.
  */
-export interface PreparedImage {
-  uri: string;
-  contentType: string;
-}
+export type { PreparedImage } from "@/shared/lib/image-picker";
 
 /** Presigned upload target returned by the API (step 1 of the avatar flow). */
 export interface AvatarUploadTarget {

@@ -96,6 +96,15 @@ export function ProfileScreen() {
         testID="profile-edit-button"
         onPress={() => router.push("/edit-profile")}
       />
+
+      <Button
+        label="Mis servicios"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-my-services-button"
+        onPress={() => router.push("/my-services")}
+      />
     </ScrollView>
   );
 }

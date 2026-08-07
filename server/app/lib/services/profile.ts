@@ -3,14 +3,11 @@ import type { ZodType } from "zod";
 
 import {
   authenticateRequest,
+  authErrorResponse as authError,
   getBearerToken,
   toPublicUser,
 } from "@/app/lib/auth";
-import {
-  AbstractSubmitHandler,
-  ZodSubmitHandler,
-  type SubmitError,
-} from "@/app/lib/core";
+import { AbstractSubmitHandler, ZodSubmitHandler } from "@/app/lib/core";
 import { User, UserDocument } from "@/app/lib/models";
 import {
   createAvatarUploadUrl,
@@ -28,20 +25,6 @@ import {
   type AvatarUploadRequestInputType,
   type UpdateProfileInputType,
 } from "@/app/lib/validation";
-
-/** 401 body shared by every profile endpoint, in the standard error shape. */
-function authError(reason: "missing" | "invalid"): NextResponse<SubmitError> {
-  return NextResponse.json(
-    {
-      type: "VALIDATION_ERROR",
-      message:
-        reason === "missing"
-          ? "Missing access token"
-          : "Invalid or expired access token",
-    },
-    { status: 401 },
-  );
-}
 
 /** Deleting a superseded object must never fail the request that replaced it. */
 function deleteInBackground(key: string) {

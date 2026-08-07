@@ -81,6 +81,16 @@ export function getOpenApiSpec() {
               },
             },
           },
+          ServiceLocation: {
+            type: "object",
+            description:
+              "Coordinates in human order. Stored internally as a GeoJSON point ([lng, lat]).",
+            required: ["lat", "lng"],
+            properties: {
+              lat: { type: "number", format: "float", example: 20.6597 },
+              lng: { type: "number", format: "float", example: -103.3496 },
+            },
+          },
           Service: {
             type: "object",
             properties: {
@@ -100,8 +110,67 @@ export function getOpenApiSpec() {
               priceFromCents: { type: "integer", example: 45000 },
               rating: { type: "number", format: "float", example: 4.8 },
               providerName: { type: "string", example: "CleanPro" },
+              imageUrl: {
+                type: "string",
+                nullable: true,
+                description:
+                  "Absolute URL derived from the stored object key; null when the service has no photo.",
+                example:
+                  "http://localhost:9000/service-images/665f1b2c9a1b2c3d4e5f6a7b/a1b2.jpg",
+              },
+              ownerId: {
+                type: "string",
+                nullable: true,
+                description:
+                  "User allowed to edit or delete it. Null for the seeded catalog, which nobody owns.",
+              },
+              location: {
+                allOf: [{ $ref: "#/components/schemas/ServiceLocation" }],
+                nullable: true,
+              },
               createdAt: { type: "string", format: "date-time" },
               updatedAt: { type: "string", format: "date-time" },
+            },
+          },
+          ServiceInput: {
+            type: "object",
+            required: ["name", "description", "category", "priceFromCents"],
+            properties: {
+              name: { type: "string", minLength: 3, maxLength: 80 },
+              description: { type: "string", minLength: 20, maxLength: 600 },
+              category: {
+                type: "string",
+                enum: [
+                  "hogar",
+                  "belleza",
+                  "tecnologia",
+                  "bienestar",
+                  "automotriz",
+                ],
+              },
+              priceFromCents: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100000000,
+                description: "Starting price in MXN cents.",
+              },
+              providerName: {
+                type: "string",
+                minLength: 2,
+                maxLength: 60,
+                description: "Defaults to the owner's own name when omitted.",
+              },
+              imageKey: {
+                type: "string",
+                nullable: true,
+                description:
+                  "Key returned by /api/services/image/upload-url. Null clears the photo.",
+              },
+              location: {
+                allOf: [{ $ref: "#/components/schemas/ServiceLocation" }],
+                nullable: true,
+                description: "Null removes it from radius search.",
+              },
             },
           },
           PaginationMeta: {

@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 
-import type { Service } from "@/features/services/domain/types";
+import type { Service, ServicePage } from "@/features/services/domain/types";
 import { getServices } from "@/features/services/domain/use-cases";
 import { useServicesQuery } from "@/features/services/queries/use-services-query";
 
@@ -20,17 +20,30 @@ jest.mock("@/features/services/domain/use-cases", () => ({
 
 const mockGetServices = getServices as jest.MockedFunction<typeof getServices>;
 
-const SERVICES: Service[] = [
-  {
-    id: "svc-1",
-    name: "Limpieza de hogar",
+function makeService(id: string): Service {
+  return {
+    id,
+    name: `Servicio ${id}`,
     description: "desc",
     category: "hogar",
     priceFromCents: 45000,
     rating: 4.8,
     providerName: "CleanPro",
-  },
-];
+    imageUrl: null,
+    ownerId: null,
+    location: null,
+  };
+}
+
+function page(items: Service[], overrides: Partial<ServicePage> = {}): ServicePage {
+  return {
+    items,
+    page: 1,
+    hasNextPage: false,
+    total: items.length,
+    ...overrides,
+  };
+}
 
 const clients: QueryClient[] = [];
 function createWrapper() {
@@ -55,8 +68,8 @@ describe("useServicesQuery", () => {
     clients.length = 0;
   });
 
-  test("returns catalog data on success", async () => {
-    mockGetServices.mockResolvedValue(SERVICES);
+  test("returns the flattened catalog on success", async () => {
+    mockGetServices.mockResolvedValue(page([makeService("svc-1")]));
 
     const { result } = await renderHook(() => useServicesQuery(), {
       wrapper: createWrapper(),
@@ -65,8 +78,45 @@ describe("useServicesQuery", () => {
     // The initial pending state is covered reliably by the screen test
     // (catalog-loading); asserting it here races with the mock resolving.
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(SERVICES);
-    expect(mockGetServices).toHaveBeenCalledTimes(1);
+    expect(result.current.data?.items).toEqual([makeService("svc-1")]);
+    expect(mockGetServices).toHaveBeenCalledWith({}, 1);
+  });
+
+  test("passes the active filters through to the use-case", async () => {
+    mockGetServices.mockResolvedValue(page([]));
+    const filters = { q: "masaje", category: "bienestar" } as const;
+
+    const { result } = await renderHook(() => useServicesQuery(filters), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockGetServices).toHaveBeenCalledWith(filters, 1);
+  });
+
+  test("appends the next page instead of replacing the list", async () => {
+    mockGetServices
+      .mockResolvedValueOnce(
+        page([makeService("svc-1")], { hasNextPage: true, total: 2 }),
+      )
+      .mockResolvedValueOnce(page([makeService("svc-2")], { page: 2, total: 2 }));
+
+    const { result } = await renderHook(() => useServicesQuery(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.hasNextPage).toBe(true);
+
+    void result.current.fetchNextPage();
+
+    await waitFor(() => expect(result.current.data?.items).toHaveLength(2));
+    expect(result.current.data?.items.map((item) => item.id)).toEqual([
+      "svc-1",
+      "svc-2",
+    ]);
+    expect(mockGetServices).toHaveBeenLastCalledWith({}, 2);
+    expect(result.current.hasNextPage).toBe(false);
   });
 
   test("surfaces an error when the use-case rejects", async () => {

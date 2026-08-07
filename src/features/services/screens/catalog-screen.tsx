@@ -1,12 +1,30 @@
+import { useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/shared/components/themed-text";
 import { ThemedView } from "@/shared/components/themed-view";
 import { Button } from "@/shared/components/ui/button";
-import { BottomTabInset, MaxContentWidth, Spacing } from "@/shared/constants/theme";
+import {
+  BottomTabInset,
+  MaxContentWidth,
+  Spacing,
+} from "@/shared/constants/theme";
+import { useDebouncedValue } from "@/shared/hooks/use-debounced-value";
 import { ApiError } from "@/shared/lib/api-error";
+import {
+  getCurrentCoordinates,
+  type Coordinates,
+} from "@/shared/lib/device-location";
+
+import { SearchBar } from "../components/search-bar";
 import { ServiceCard } from "../components/service-card";
+import {
+  ServiceFiltersBar,
+  type RadiusOption,
+} from "../components/service-filters-bar";
+import type { ServiceCategory, ServiceFilters } from "../domain/types";
 import { useServicesQuery } from "../queries/use-services-query";
 
 function errorHint(error: unknown): string {
@@ -17,15 +35,101 @@ function errorHint(error: unknown): string {
 }
 
 export function CatalogScreen() {
-  const { data, isPending, isError, error, refetch, isFetching } =
-    useServicesQuery();
+  const router = useRouter();
+
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<ServiceCategory | null>(null);
+  const [radiusKm, setRadiusKm] = useState<RadiusOption | null>(null);
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [locationNotice, setLocationNotice] = useState<string | null>(null);
+
+  // One request per pause in typing instead of one per keystroke.
+  const debouncedSearch = useDebouncedValue(search);
+
+  // The radius filter is useless without a position, so asking for the device
+  // location is driven by the chip rather than done on mount — no permission
+  // prompt for someone who never uses the filter.
+  useEffect(() => {
+    if (radiusKm === null || coordinates !== null) return;
+
+    let active = true;
+    void getCurrentCoordinates().then((result) => {
+      if (!active) return;
+
+      if (result.status === "granted") {
+        setCoordinates(result.coordinates);
+        setLocationNotice(null);
+        return;
+      }
+
+      // Drop the chip back to "off" so the list isn't silently unfiltered
+      // while the UI claims a radius is applied.
+      setRadiusKm(null);
+      setLocationNotice(
+        result.status === "denied"
+          ? "Necesitamos tu ubicación para filtrar por distancia."
+          : "No pudimos obtener tu ubicación. Inténtalo de nuevo.",
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [radiusKm, coordinates]);
+
+  const filters = useMemo<ServiceFilters>(
+    () => ({
+      q: debouncedSearch,
+      category,
+      near:
+        radiusKm !== null && coordinates !== null
+          ? { ...coordinates, radiusKm }
+          : null,
+    }),
+    [debouncedSearch, category, radiusKm, coordinates],
+  );
+
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    refetch,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useServicesQuery(filters);
+
+  const hasActiveFilters =
+    debouncedSearch.trim().length > 0 || category !== null || radiusKm !== null;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Servicios
-        </ThemedText>
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            Servicios
+          </ThemedText>
+          <Button
+            label="Publicar"
+            variant="primary"
+            size="sm"
+            testID="catalog-create-button"
+            onPress={() => router.push("/service-form")}
+          />
+        </View>
+
+        <View style={styles.controls}>
+          <SearchBar value={search} onChangeText={setSearch} />
+          <ServiceFiltersBar
+            category={category}
+            onCategoryChange={setCategory}
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+            locationNotice={locationNotice}
+          />
+        </View>
 
         {isPending ? (
           <View style={styles.centered} testID="catalog-loading">
@@ -36,7 +140,9 @@ export function CatalogScreen() {
           </View>
         ) : isError ? (
           <View style={styles.centered} testID="catalog-error">
-            <ThemedText type="smallBold">No pudimos cargar los servicios</ThemedText>
+            <ThemedText type="smallBold">
+              No pudimos cargar los servicios
+            </ThemedText>
             <ThemedText
               type="small"
               themeColor="textSecondary"
@@ -53,23 +159,45 @@ export function CatalogScreen() {
               onPress={() => refetch()}
             />
           </View>
-        ) : data.length === 0 ? (
+        ) : data.items.length === 0 ? (
           <View style={styles.centered} testID="catalog-empty">
-            <ThemedText type="smallBold">Sin servicios disponibles</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Vuelve más tarde.
+            <ThemedText type="smallBold">
+              {hasActiveFilters
+                ? "Sin resultados"
+                : "Sin servicios disponibles"}
+            </ThemedText>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={styles.errorHint}
+            >
+              {hasActiveFilters
+                ? "Prueba con otra búsqueda o quita algún filtro."
+                : "Vuelve más tarde."}
             </ThemedText>
           </View>
         ) : (
           <FlatList
             testID="catalog-list"
-            data={data}
+            data={data.items}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <ServiceCard service={item} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshing={isFetching}
+            refreshing={isFetching && !isFetchingNextPage}
             onRefresh={refetch}
+            // Pull the next page in before the user hits the bottom.
+            onEndReachedThreshold={0.4}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+            }}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View style={styles.footer} testID="catalog-loading-more">
+                  <ActivityIndicator />
+                </View>
+              ) : null
+            }
           />
         )}
       </SafeAreaView>
@@ -88,10 +216,20 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingHorizontal: Spacing.four,
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
   title: {
     fontSize: 34,
     fontWeight: "700",
-    paddingVertical: Spacing.three,
+  },
+  controls: {
+    gap: Spacing.two,
+    paddingBottom: Spacing.three,
   },
   centered: {
     flex: 1,
@@ -106,5 +244,8 @@ const styles = StyleSheet.create({
   listContent: {
     gap: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.four,
+  },
+  footer: {
+    paddingVertical: Spacing.three,
   },
 });

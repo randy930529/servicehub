@@ -1,46 +1,33 @@
 import { apiClient } from "@/shared/lib/api-client";
 
-import type { Service, ServiceCategory } from "../types";
+import type { ServiceFilters, ServicePage } from "../types";
+import {
+  toService,
+  toServiceQueryParams,
+  type ApiServicePage,
+} from "./api-service";
 
-/** A service as returned by the backend (`GET /api/services`). */
-interface ApiService {
-  _id: string;
-  name: string;
-  description: string;
-  category: ServiceCategory;
-  priceFromCents: number;
-  rating: number;
-  providerName: string;
-}
-
-interface ServicesResponse {
-  data: ApiService[];
-  meta: unknown;
-}
-
-/** Maps the API shape (`_id`, Mongo fields) to the domain `Service` (`id`). */
-function toService(api: ApiService): Service {
-  return {
-    id: api._id,
-    name: api.name,
-    description: api.description,
-    category: api.category,
-    priceFromCents: api.priceFromCents,
-    rating: api.rating,
-    providerName: api.providerName,
-  };
-}
+/** Page size for the catalog. Small enough to render fast, big enough to fill a screen. */
+export const SERVICES_PAGE_SIZE = 20;
 
 /**
- * Fetches the service catalog from the backend.
+ * Fetches one page of the catalog, applying the active search and filters.
  *
- * Requests a large page size so the screen gets the full catalog for now
- * (pagination params are available server-side for future use). Signature is
- * unchanged (`Promise<Service[]>`), so the query hook and screen are untouched.
+ * Returns the page rather than a bare array so the caller knows whether to ask
+ * for more — the catalog pages as you scroll instead of pulling everything.
  */
-export async function getServices(): Promise<Service[]> {
-  const { data } = await apiClient.get<ServicesResponse>("/api/services", {
-    params: { limit: 100 },
+export async function getServices(
+  filters: ServiceFilters = {},
+  page = 1,
+): Promise<ServicePage> {
+  const { data } = await apiClient.get<ApiServicePage>("/api/services", {
+    params: toServiceQueryParams(filters, page, SERVICES_PAGE_SIZE),
   });
-  return data.data.map(toService);
+
+  return {
+    items: data.data.map(toService),
+    page: data.meta.page,
+    hasNextPage: data.meta.hasNextPage,
+    total: data.meta.total,
+  };
 }
