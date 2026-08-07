@@ -65,3 +65,32 @@ export function getUploadUrlTtlSeconds(): number {
 export function getAvatarMaxBytes(): number {
   return envInt("NEXT_AVATAR_MAX_BYTES", 5 * 1024 * 1024, 1024, 50 * 1024 * 1024);
 }
+
+/** Bucket holding service photos — separate lifecycle from avatars. */
+export function getServiceImagesBucket(): string {
+  return process.env.NEXT_S3_SERVICE_IMAGES_BUCKET || "service-images";
+}
+
+/**
+ * Public host for service-image URLs.
+ *
+ * With path-style URLs (MinIO) one host serves every bucket, so the shared
+ * public endpoint is enough. Real S3 in virtual-hosted style puts the bucket in
+ * the hostname, which is why this can be overridden per bucket.
+ */
+export function getServiceImagesPublicEndpoint(): string {
+  const override = process.env.NEXT_S3_SERVICE_IMAGES_PUBLIC_ENDPOINT;
+  return override
+    ? normalizeEndpoint(override)
+    : getStorageConfig().publicEndpoint;
+}
+
+/** Largest service image the API accepts, in bytes (default 5 MB). */
+export function getServiceImageMaxBytes(): number {
+  return envInt(
+    "NEXT_SERVICE_IMAGE_MAX_BYTES",
+    5 * 1024 * 1024,
+    1024,
+    50 * 1024 * 1024,
+  );
+}

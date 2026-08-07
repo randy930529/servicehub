@@ -1,5 +1,7 @@
 import type { HydratedDocument } from "mongoose";
+import { NextResponse } from "next/server";
 
+import type { SubmitError } from "@/app/lib/core";
 import { PublicUserType, SessionResponseType } from "@/app/lib/definitions";
 import { User, type UserDocument } from "@/app/lib/models";
 import { connectToDatabase } from "@/app/lib/mongoose";
@@ -102,4 +104,20 @@ export async function authenticateRequest(
   if (!user) return { ok: false, reason: "invalid" };
 
   return { ok: true, user };
+}
+
+/** 401 body shared by every protected endpoint, in the standard error shape. */
+export function authErrorResponse(
+  reason: "missing" | "invalid",
+): NextResponse<SubmitError> {
+  return NextResponse.json(
+    {
+      type: "VALIDATION_ERROR",
+      message:
+        reason === "missing"
+          ? "Missing access token"
+          : "Invalid or expired access token",
+    },
+    { status: 401 },
+  );
 }

@@ -45,6 +45,17 @@ async function seed() {
   const inserted = await Service.insertMany(SEED_SERVICES);
   console.log(`Inserted ${inserted.length} services`);
 
+  // Builds the text/2dsphere/compound indexes the catalog search needs, and
+  // drops any left over from an older schema. Doing it here (rather than
+  // relying on Mongoose's autoIndex) keeps index builds an explicit,
+  // deliberate step instead of something the first request triggers.
+  const syncedIndexes = await Service.syncIndexes();
+  console.log(
+    syncedIndexes.length > 0
+      ? `Synced indexes (dropped: ${syncedIndexes.join(", ")})`
+      : "Synced indexes",
+  );
+
   await mongoose.disconnect();
   console.log("Done");
 }

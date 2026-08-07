@@ -1,20 +1,21 @@
 import { randomUUID } from "node:crypto";
 
 import { getStorageConfig } from "./config";
+import {
+  IMAGE_CONTENT_TYPES,
+  imageExtensionFor,
+  isAllowedImageContentType,
+  isOwnedKey,
+} from "./image-types";
 
 /**
  * Image types accepted for an avatar, mapped to the extension used in the
- * object key. An allow-list (never a deny-list) keeps SVG — and the XSS it can
- * carry when served from our own origin — out of the bucket.
+ * object key. Same allow-list as every other upload — see `image-types.ts`.
  */
-export const AVATAR_CONTENT_TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
+export const AVATAR_CONTENT_TYPES = IMAGE_CONTENT_TYPES;
 
 export function isAllowedAvatarContentType(contentType: string): boolean {
-  return contentType in AVATAR_CONTENT_TYPES;
+  return isAllowedImageContentType(contentType);
 }
 
 /**
@@ -25,7 +26,7 @@ export function isAllowedAvatarContentType(contentType: string): boolean {
  * and `expo-image` can't serve a stale cached avatar.
  */
 export function buildAvatarKey(userId: string, contentType: string): string {
-  const extension = AVATAR_CONTENT_TYPES[contentType];
+  const extension = imageExtensionFor(contentType);
   if (!extension) {
     throw new Error(`Unsupported avatar content type: ${contentType}`);
   }
@@ -38,8 +39,7 @@ export function buildAvatarKey(userId: string, contentType: string): string {
  * claim user B's avatar object — or an arbitrary object in the bucket.
  */
 export function isOwnedAvatarKey(key: string, userId: string): boolean {
-  if (key.includes("..") || key.includes("//")) return false;
-  return key.startsWith(`${userId}/`);
+  return isOwnedKey(key, userId);
 }
 
 /**

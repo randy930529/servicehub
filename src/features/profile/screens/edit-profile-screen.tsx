@@ -81,6 +81,10 @@ export function EditProfileScreen() {
       );
       return;
     }
+    if (result.status === "failed") {
+      setAvatarNotice("No pudimos procesar la imagen. Prueba con otra foto.");
+      return;
+    }
     if (result.status === "canceled") return;
 
     try {
