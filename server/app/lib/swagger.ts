@@ -173,6 +173,23 @@ export function getOpenApiSpec() {
               },
             },
           },
+          Device: {
+            type: "object",
+            description: "A device registered to receive push notifications.",
+            properties: {
+              token: {
+                type: "string",
+                example: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+              },
+              platform: { type: "string", enum: ["ios", "android", "web"] },
+              deviceName: { type: "string", nullable: true, example: "Pixel 7" },
+              lastSeenAt: {
+                type: "string",
+                format: "date-time",
+                description: "Refreshed every time the app re-registers.",
+              },
+            },
+          },
           PaginationMeta: {
             type: "object",
             properties: {

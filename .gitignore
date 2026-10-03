@@ -67,3 +67,5 @@ AGENTS.md
 # CLI
 expo-cli-*.log
 eas.json
+
+/secrets
