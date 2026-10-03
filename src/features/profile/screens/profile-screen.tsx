@@ -105,6 +105,15 @@ export function ProfileScreen() {
         testID="profile-my-services-button"
         onPress={() => router.push("/my-services")}
       />
+
+      <Button
+        label="Notificaciones"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-notifications-button"
+        onPress={() => router.push("/notifications")}
+      />
     </ScrollView>
   );
 }

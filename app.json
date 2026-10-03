@@ -22,7 +22,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.randy.dev.servicehub"
+      "package": "com.randy.dev.servicehub",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -54,6 +55,13 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "ServiceHub usa tu ubicación para mostrarte los servicios más cercanos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#3c87f7",
+          "defaultChannel": "default"
         }
       ]
     ],

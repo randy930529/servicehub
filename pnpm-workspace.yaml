@@ -1,3 +1,8 @@
 allowBuilds:
   msw: true
   unrs-resolver: true
+
+# React Native no soporta el node_modules aislado de pnpm. Además, en Windows
+# el segmento `.pnpm/<pkg>@<version>_<hash>/node_modules/` empuja las rutas de
+# CMake (.cxx) por encima del limite de 250 caracteres y falla el build nativo.
+nodeLinker: hoisted
