@@ -122,8 +122,9 @@ npx expo run:android --device Phone
 ### Dos trampas de las credenciales de Android
 
 - **`google-services.json` sí se puede commitear** — solo lleva identificadores
-  públicos. La **service account key JSON no**: añádela a `.gitignore` _antes_ de
-  descargarla.
+  públicos (ver [Por qué está en el repositorio](#por-qué-google-servicesjson-está-en-el-repositorio)).
+  La **service account key JSON no**: vive en `secrets/`, que está en
+  `.gitignore`.
 - Si la API key de `google-services.json` está restringida en Google Cloud,
   habilita **FCM Registration API** y **Firebase Installations API**. Si no, la
   Firebase Installations API responde `403 PERMISSION_DENIED` y la app **nunca
@@ -136,6 +137,44 @@ Sin el paso 3, los recibos traen `MismatchSenderId` o `InvalidCredentials`.
 - [ ] `eas credentials` genera la push key. Revocarla rompe el push de todas las
       apps que la compartan.
 - [ ] Hace falta una cuenta de Apple Developer de pago.
+
+## Por qué `google-services.json` está en el repositorio
+
+Los escáneres de secretos marcan su `client.api_key.current_key` como "Google API
+Key expuesta". **Es un falso positivo, pero la restricción que lo acompaña no es
+opcional.**
+
+Esa clave **identifica** el proyecto, no autoriza nada: el acceso lo controlan las
+Security Rules de Firebase. Viaja dentro del APK de toda app Android con Firebase,
+así que cualquiera la extrae de un `.apk` publicado —
+[Google documenta que es seguro commitearla](https://firebase.google.com/docs/projects/api-keys).
+Rotarla no arregla nada: la nueva queda igual de pública en el siguiente commit.
+
+El riesgo real es otro: **una API key de Google sin restringir sirve para llamar a
+otras APIs de Google Cloud facturadas a este proyecto.** Por eso la clave está
+restringida en
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+(proyecto `servicehub-3735a`):
+
+| Restricción | Valor |
+| --- | --- |
+| APIs permitidas | Firebase Installations API + FCM Registration API |
+| Paquete Android | `com.randy.dev.servicehub` |
+| SHA-1 (keystore de debug) | `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25` |
+
+> **Las dos APIs tienen que estar.** Si falta la Firebase Installations API, la
+> app deja de obtener token y verás `403 PERMISSION_DENIED`. El síntoma en
+> pantalla es "no llegan las notificaciones", que no apunta para nada a una
+> restricción de API key.
+
+> **El SHA-1 es por keystore.** El de la tabla es el del build local de debug. Al
+> compilar con `eas build` el keystore es otro: añade su SHA-1 (`eas credentials`
+> lo muestra) o el push deja de funcionar en ese build. Al publicar en Play manda
+> el de **App Integrity**, no el de tu upload key.
+
+Lo que **no** está en el repositorio es la *service account key* (en `secrets/`,
+ignorado): esa sí es una credencial, y es la que permite a Expo enviar en nombre
+de este proyecto. Si esa se filtrara, habría que revocarla de verdad.
 
 ## Endpoints
 
