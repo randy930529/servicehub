@@ -32,3 +32,26 @@ jest.mock("expo-location", () => ({
     coords: { latitude: 20.6597, longitude: -103.3496 },
   })),
 }));
+
+// `react-native-maps` ships native views that jest-expo cannot render. The mock
+// keeps the real component tree shape — a map with markers as children — so a
+// test can still assert which pins were drawn and press one, which is the whole
+// point of the map in the catalog.
+//
+// Built with `createElement` rather than JSX because this setup file is `.ts`.
+jest.mock("react-native-maps", () => {
+  const { createElement } = require("react");
+  const { View } = require("react-native");
+
+  const asView =
+    (): React.FC<{ children?: React.ReactNode }> =>
+    ({ children, ...props }) =>
+      createElement(View, props, children);
+
+  return {
+    __esModule: true,
+    default: asView(),
+    Marker: asView(),
+    PROVIDER_GOOGLE: "google",
+  };
+});

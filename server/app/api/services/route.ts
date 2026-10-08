@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { authenticateRequest, authErrorResponse } from "@/app/lib/auth";
 import {
+  buildGeoNearStage,
   buildMeta,
   getSkip,
   parsePagination,
@@ -97,7 +98,8 @@ export async function GET(request: Request) {
       limit: searchParams.get("limit"),
     });
 
-    const { filter, sort, usesTextScore } = parseServiceFilters({
+    const { filter, sort, usesTextScore, center, usesGeoNear } =
+      parseServiceFilters({
       q: searchParams.get("q"),
       category: searchParams.get("category"),
       minPrice: searchParams.get("minPrice"),
@@ -106,7 +108,7 @@ export async function GET(request: Request) {
       lng: searchParams.get("lng"),
       radiusKm: searchParams.get("radiusKm"),
       sort: searchParams.get("sort"),
-    });
+      });
 
     const query: Record<string, unknown> = { ...filter };
 
@@ -120,21 +122,37 @@ export async function GET(request: Request) {
 
     await connectToDatabase();
 
-    const listQuery = Service.find(query)
-      .sort(sort)
-      .skip(getSkip(params))
-      .limit(params.limit);
+    // Only Mongo can order by distance, and only through `$geoNear`. The count
+    // still runs off `query`, whose `$geoWithin` covers exactly the same set as
+    // the stage's `maxDistance` — no second aggregation just to total them.
+    const findPage = async () => {
+      if (usesGeoNear && center) {
+        const { location: _geoWithin, ...rest } = query;
+        return Service.aggregate([
+          buildGeoNearStage(center, rest),
+          { $skip: getSkip(params) },
+          { $limit: params.limit },
+        ]);
+      }
 
-    // Sorting by relevance requires the score to be projected as well.
-    if (usesTextScore) listQuery.select({ score: { $meta: "textScore" } });
+      const listQuery = Service.find(query)
+        .sort(sort)
+        .skip(getSkip(params))
+        .limit(params.limit);
+
+      // Sorting by relevance requires the score to be projected as well.
+      if (usesTextScore) listQuery.select({ score: { $meta: "textScore" } });
+
+      return listQuery.lean();
+    };
 
     const [data, total] = await Promise.all([
-      listQuery.lean(),
+      findPage(),
       Service.countDocuments(query),
     ]);
 
     return NextResponse.json({
-      data: data.map(toPublicService),
+      data: data.map((item) => toPublicService(item, center)),
       meta: buildMeta(params, total),
     });
   } catch (error) {

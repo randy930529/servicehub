@@ -6,6 +6,17 @@ import { Card } from "@/shared/components/ui/card";
 import { Spacing } from "@/shared/constants/theme";
 import type { Service } from "../domain/types";
 
+/**
+ * Formats a distance the way people say it: metres below a kilometre, one
+ * decimal up to 10 km, whole kilometres beyond. "0.4 km" and "1.8 km" read as
+ * precision the GPS does not actually have.
+ */
+export function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+}
+
 /** Formats integer cents as a grouped MXN amount, e.g. 45000 -> "$450 MXN". */
 function formatPrice(cents: number): string {
   const pesos = Math.round(cents / 100)
@@ -58,6 +69,9 @@ export function ServiceCard({ service, onPress, footer }: ServiceCardProps) {
         <View style={styles.row}>
           <ThemedText type="small" themeColor="textSecondary">
             {service.providerName}
+            {service.distanceKm !== undefined
+              ? ` · a ${formatDistance(service.distanceKm)}`
+              : ""}
           </ThemedText>
           <ThemedText type="smallBold">
             Desde {formatPrice(service.priceFromCents)}

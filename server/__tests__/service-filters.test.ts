@@ -205,3 +205,57 @@ describe("combined filters", () => {
     assert.deepEqual(filter, {});
   });
 });
+
+describe("sorting by distance", () => {
+  const CENTER = { lat: "20.6597", lng: "-103.3496", radiusKm: "5" };
+
+  it("hands the centre to the caller so results can carry their distance", () => {
+    const { center } = parseServiceFilters(CENTER);
+
+    assert.deepEqual(center, { lat: 20.6597, lng: -103.3496, radiusKm: 5 });
+  });
+
+  it("reports no centre when the caller gave none", () => {
+    assert.equal(parseServiceFilters({ sort: "distance" }).center, null);
+  });
+
+  it("switches to $geoNear, which does the ordering itself", () => {
+    const { sort, usesGeoNear } = parseServiceFilters({
+      ...CENTER,
+      sort: "distance",
+    });
+
+    assert.equal(usesGeoNear, true);
+    // `$geoNear` emits results already ordered; a `sort` here would be a
+    // second, redundant pass over them.
+    assert.deepEqual(sort, {});
+  });
+
+  it("still filters by $geoWithin, so the count matches the page", () => {
+    const { filter } = parseServiceFilters({ ...CENTER, sort: "distance" });
+
+    assert.ok(filter.location?.$geoWithin);
+  });
+
+  it("falls back to recent when there is no centre to measure from", () => {
+    const { sort, usesGeoNear } = parseServiceFilters({ sort: "distance" });
+
+    assert.equal(usesGeoNear, false);
+    assert.deepEqual(sort, { createdAt: -1 });
+  });
+
+  it("keeps the search and degrades the order, never the other way round", () => {
+    // `$geoNear` must be the first stage and cannot carry `$text`, so ranking
+    // by distance here would mean dropping the search term. Wrong results are
+    // worse than a surprising order.
+    const { filter, sort, usesGeoNear, usesTextScore, center } =
+      parseServiceFilters({ ...CENTER, q: "limpieza", sort: "distance" });
+
+    assert.deepEqual(filter.$text, { $search: "limpieza" });
+    assert.equal(usesGeoNear, false);
+    assert.equal(usesTextScore, true);
+    assert.deepEqual(sort, { score: { $meta: "textScore" }, createdAt: -1 });
+    // The centre survives, so every result still reports how far it is.
+    assert.ok(center);
+  });
+});

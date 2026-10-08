@@ -63,6 +63,12 @@
           "color": "#3c87f7",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyAe4m3sdbJ1pMExxrwO00mzRk4XxG9zOy8"
+        }
       ]
     ],
     "experiments": {

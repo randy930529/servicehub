@@ -20,6 +20,8 @@ import {
 
 import { SearchBar } from "../components/search-bar";
 import { ServiceCard } from "../components/service-card";
+import { ServicesMap } from "../components/services-map";
+import { ViewModeToggle, type ViewMode } from "../components/view-mode-toggle";
 import {
   ServiceFiltersBar,
   type RadiusOption,
@@ -42,6 +44,10 @@ export function CatalogScreen() {
   const [radiusKm, setRadiusKm] = useState<RadiusOption | null>(null);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // Shared by both views on purpose: one selection, two renderings of it. That
+  // is what "synced" means here — not two states kept in step by hand.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // One request per pause in typing instead of one per keystroke.
   const debouncedSearch = useDebouncedValue(search);
@@ -85,6 +91,10 @@ export function CatalogScreen() {
         radiusKm !== null && coordinates !== null
           ? { ...coordinates, radiusKm }
           : null,
+      // Nearest-first only makes sense once there is a centre to measure from.
+      // With a search term the API keeps the text ranking instead; asking for
+      // both is not an error, it just prefers the more useful one.
+      sort: radiusKm !== null && coordinates !== null ? "distance" : undefined,
     }),
     [debouncedSearch, category, radiusKm, coordinates],
   );
@@ -100,6 +110,11 @@ export function CatalogScreen() {
     hasNextPage,
     isFetchingNextPage,
   } = useServicesQuery(filters);
+
+  // Resolved from the shared id rather than stored as an object: the list
+  // refetches, and a held copy would quietly go stale after a price edit.
+  const selectedService =
+    data?.items.find((service) => service.id === selectedId) ?? null;
 
   const hasActiveFilters =
     debouncedSearch.trim().length > 0 || category !== null || radiusKm !== null;
@@ -129,6 +144,7 @@ export function CatalogScreen() {
             onRadiusChange={setRadiusKm}
             locationNotice={locationNotice}
           />
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </View>
 
         {isPending ? (
@@ -175,6 +191,27 @@ export function CatalogScreen() {
                 ? "Prueba con otra búsqueda o quita algún filtro."
                 : "Vuelve más tarde."}
             </ThemedText>
+          </View>
+        ) : viewMode === "map" ? (
+          <View style={styles.mapArea}>
+            <ServicesMap
+              services={data.items}
+              center={coordinates}
+              radiusKm={radiusKm}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            {selectedService ? (
+              <View style={styles.selectedCard} testID="catalog-map-selection">
+                <ServiceCard service={selectedService} />
+              </View>
+            ) : (
+              <View style={styles.mapHint} pointerEvents="none">
+                <ThemedText type="small" themeColor="textSecondary">
+                  Toca un marcador para ver el servicio
+                </ThemedText>
+              </View>
+            )}
           </View>
         ) : (
           <FlatList
@@ -247,5 +284,26 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingVertical: Spacing.three,
+  },
+  mapArea: {
+    flex: 1,
+    marginBottom: BottomTabInset,
+    borderRadius: Spacing.two,
+    overflow: "hidden",
+  },
+  selectedCard: {
+    position: "absolute",
+    left: Spacing.two,
+    right: Spacing.two,
+    bottom: Spacing.two,
+  },
+  mapHint: {
+    position: "absolute",
+    alignSelf: "center",
+    bottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
 });
