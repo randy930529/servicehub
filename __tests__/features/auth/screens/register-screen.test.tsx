@@ -52,8 +52,8 @@ describe("RegisterScreen", () => {
   test("shows name validation error for short name", async () => {
     await render(<RegisterScreen />);
 
-    fireEvent.changeText(await screen.findByTestId("register-name-input"), "J");
-    fireEvent.press(await screen.findByTestId("register-submit-button"));
+    await fireEvent.changeText(await screen.findByTestId("register-name-input"), "J");
+    await fireEvent.press(await screen.findByTestId("register-submit-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Mínimo 2 caracteres")).toBeTruthy();
@@ -63,23 +63,23 @@ describe("RegisterScreen", () => {
   test("shows error when passwords do not match", async () => {
     await render(<RegisterScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-name-input"),
       "Juan",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-email-input"),
       "a@b.com",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-password-input"),
       EIGHT_DIGITS,
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-confirm-password-input"),
       OTHER_TEXT,
     );
-    fireEvent.press(await screen.findByTestId("register-submit-button"));
+    await fireEvent.press(await screen.findByTestId("register-submit-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Las contraseñas no coinciden")).toBeTruthy();
@@ -89,23 +89,23 @@ describe("RegisterScreen", () => {
   test("calls auth store login on valid submission", async () => {
     await render(<RegisterScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-name-input"),
       "Juan Pérez",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-email-input"),
       "juan@correo.com",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-password-input"),
       EIGHT_DIGITS,
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("register-confirm-password-input"),
       EIGHT_DIGITS,
     );
-    fireEvent.press(await screen.findByTestId("register-submit-button"));
+    await fireEvent.press(await screen.findByTestId("register-submit-button"));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith(FAKE_SESSION);

@@ -121,11 +121,11 @@ describe("EditProfileScreen", () => {
   test("saves the edited fields and navigates back", async () => {
     await renderScreen(<EditProfileScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("profile-name-input"),
       "Ana María Pérez",
     );
-    fireEvent.press(await screen.findByTestId("profile-submit-button"));
+    await fireEvent.press(await screen.findByTestId("profile-submit-button"));
 
     await waitFor(() =>
       expect(mockUpdateProfile).toHaveBeenCalledWith({
@@ -140,8 +140,8 @@ describe("EditProfileScreen", () => {
   test("blocks the save and shows the message when the name is too short", async () => {
     await renderScreen(<EditProfileScreen />);
 
-    fireEvent.changeText(await screen.findByTestId("profile-name-input"), "A");
-    fireEvent.press(await screen.findByTestId("profile-submit-button"));
+    await fireEvent.changeText(await screen.findByTestId("profile-name-input"), "A");
+    await fireEvent.press(await screen.findByTestId("profile-submit-button"));
 
     await waitFor(() =>
       expect(screen.getByText("Mínimo 2 caracteres")).toBeTruthy(),
@@ -152,11 +152,11 @@ describe("EditProfileScreen", () => {
   test("rejects a malformed phone before hitting the API", async () => {
     await renderScreen(<EditProfileScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("profile-phone-input"),
       "no-es-tel",
     );
-    fireEvent.press(await screen.findByTestId("profile-submit-button"));
+    await fireEvent.press(await screen.findByTestId("profile-submit-button"));
 
     await waitFor(() =>
       expect(screen.getByText("Ingresa un teléfono válido")).toBeTruthy(),
@@ -172,7 +172,7 @@ describe("EditProfileScreen", () => {
     });
 
     await renderScreen(<EditProfileScreen />);
-    fireEvent.press(await screen.findByTestId("avatar-change-button"));
+    await fireEvent.press(await screen.findByTestId("avatar-change-button"));
 
     await waitFor(() =>
       expect(mockUploadAvatar).toHaveBeenCalledWith(PICKED_IMAGE),
@@ -185,7 +185,7 @@ describe("EditProfileScreen", () => {
     mockPickAvatar.mockResolvedValue({ status: "canceled" });
 
     await renderScreen(<EditProfileScreen />);
-    fireEvent.press(await screen.findByTestId("avatar-change-button"));
+    await fireEvent.press(await screen.findByTestId("avatar-change-button"));
 
     await waitFor(() => expect(mockPickAvatar).toHaveBeenCalledTimes(1));
     expect(mockUploadAvatar).not.toHaveBeenCalled();
@@ -196,7 +196,7 @@ describe("EditProfileScreen", () => {
     mockPickAvatar.mockResolvedValue({ status: "denied" });
 
     await renderScreen(<EditProfileScreen />);
-    fireEvent.press(await screen.findByTestId("avatar-change-button"));
+    await fireEvent.press(await screen.findByTestId("avatar-change-button"));
 
     expect(await screen.findByTestId("avatar-notice")).toBeTruthy();
     expect(mockUploadAvatar).not.toHaveBeenCalled();
@@ -207,7 +207,7 @@ describe("EditProfileScreen", () => {
     mockUploadAvatar.mockRejectedValue(new Error("storage unreachable"));
 
     await renderScreen(<EditProfileScreen />);
-    fireEvent.press(await screen.findByTestId("avatar-change-button"));
+    await fireEvent.press(await screen.findByTestId("avatar-change-button"));
 
     expect(await screen.findByTestId("avatar-notice")).toBeTruthy();
   });
@@ -216,7 +216,7 @@ describe("EditProfileScreen", () => {
     mockRemoveAvatar.mockResolvedValue({ ...PROFILE, avatarUrl: null });
 
     await renderScreen(<EditProfileScreen />);
-    fireEvent.press(await screen.findByTestId("avatar-remove-button"));
+    await fireEvent.press(await screen.findByTestId("avatar-remove-button"));
 
     await waitFor(() => expect(mockRemoveAvatar).toHaveBeenCalledTimes(1));
     // With no avatar left, the remove action is gone too.

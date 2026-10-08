@@ -132,7 +132,7 @@ describe("catalog ↔ API integration", () => {
 
     expect(await findByTestId("catalog-error")).toBeTruthy();
 
-    fireEvent.press(getByTestId("catalog-retry-button"));
+    await fireEvent.press(getByTestId("catalog-retry-button"));
 
     expect(await findByTestId("catalog-list")).toBeTruthy();
     expect(calls).toBe(2);
