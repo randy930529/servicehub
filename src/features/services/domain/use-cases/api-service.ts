@@ -18,6 +18,7 @@ export interface ApiService {
   imageUrl?: string | null;
   ownerId?: string | null;
   location?: ServiceLocation | null;
+  distanceKm?: number;
 }
 
 export interface ApiServicePage {
@@ -50,6 +51,9 @@ export function toService(api: ApiService): Service {
     imageUrl: api.imageUrl ?? null,
     ownerId: api.ownerId ?? null,
     location: api.location ?? null,
+    // Left undefined rather than defaulted: "we didn't measure" and "it's 0 km
+    // away" must not look the same to the UI.
+    ...(api.distanceKm !== undefined ? { distanceKm: api.distanceKm } : {}),
   };
 }
 

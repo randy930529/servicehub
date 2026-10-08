@@ -13,6 +13,7 @@ import {
   type SubmitError,
 } from "@/app/lib/core";
 import type { PublicServiceType } from "@/app/lib/definitions";
+import { distanceKmBetween, type CoordinatesType } from "@/app/lib/helpers";
 import { Service, type ServiceCategory, type ServiceDocument } from "@/app/lib/models";
 import {
   buildServiceImageUrl,
@@ -57,9 +58,22 @@ function toIsoString(value: Date | string | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-/** Maps a stored service to the client shape (keys out, derived URL in). */
-export function toPublicService(source: ServiceSourceType): PublicServiceType {
+/**
+ * Maps a stored service to the client shape (keys out, derived URL in).
+ *
+ * `center` is the point a proximity search was run around. When given, every
+ * result carries how far it is — computed here rather than read from
+ * `$geoNear`, so the field looks the same whichever query shape produced it.
+ */
+export function toPublicService(
+  source: ServiceSourceType,
+  center?: CoordinatesType | null,
+): PublicServiceType {
   const coordinates = source.location?.coordinates;
+  const location =
+    coordinates && coordinates.length === 2
+      ? { lng: coordinates[0], lat: coordinates[1] }
+      : null;
 
   return {
     _id: String(source._id),
@@ -72,10 +86,10 @@ export function toPublicService(source: ServiceSourceType): PublicServiceType {
     imageUrl: buildServiceImageUrl(source.imageKey),
     ownerId: source.owner ? String(source.owner) : null,
     // Stored as GeoJSON `[lng, lat]`; handed to clients the way humans read it.
-    location:
-      coordinates && coordinates.length === 2
-        ? { lng: coordinates[0], lat: coordinates[1] }
-        : null,
+    location,
+    ...(center && location
+      ? { distanceKm: distanceKmBetween(center, location) }
+      : {}),
     createdAt: toIsoString(source.createdAt),
     updatedAt: toIsoString(source.updatedAt),
   };

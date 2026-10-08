@@ -10,6 +10,8 @@ export { FilterChip } from "./components/filter-chip";
 export { SearchBar } from "./components/search-bar";
 export { ServiceCard } from "./components/service-card";
 export { ServiceFiltersBar } from "./components/service-filters-bar";
+export { ServicesMap } from "./components/services-map";
+export { ViewModeToggle, type ViewMode } from "./components/view-mode-toggle";
 
 // Queries
 export { servicesKeys } from "./queries/keys";

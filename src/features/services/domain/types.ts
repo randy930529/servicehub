@@ -33,6 +33,12 @@ export interface Service {
   /** Who may edit it; `null` for the seeded catalog, which nobody owns. */
   ownerId: string | null;
   location: ServiceLocation | null;
+  /**
+   * Kilometres from the point the search was centred on. Only present when the
+   * request carried a `near` filter — there is nothing to measure from
+   * otherwise, so an absent value means "unknown", never "zero".
+   */
+  distanceKm?: number;
 }
 
 /** Ordering the catalog can ask the API for. */
@@ -41,7 +47,9 @@ export type ServiceSort =
   | "recent"
   | "price_asc"
   | "price_desc"
-  | "rating";
+  | "rating"
+  /** Nearest first. Needs a `near` filter; the API falls back without one. */
+  | "distance";
 
 /** Radius search around a point. All three values or none. */
 export interface ServiceNearFilter extends ServiceLocation {

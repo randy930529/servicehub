@@ -24,6 +24,12 @@ export type PublicServiceType = {
   /** Who can edit it; `null` for the seeded catalog, which nobody owns. */
   ownerId: string | null;
   location: ServiceLocationType | null;
+  /**
+   * Kilometres from the centre the caller searched around. Only present when
+   * the request carried `lat`/`lng`/`radiusKm` — without a centre there is
+   * nothing to measure from.
+   */
+  distanceKm?: number;
   createdAt: string | null;
   updatedAt: string | null;
 };

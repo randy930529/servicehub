@@ -163,3 +163,85 @@ describe("CatalogScreen", () => {
     expect(mockGetServices).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("CatalogScreen — lista y mapa sincronizados", () => {
+  const LOCATED: Service = {
+    ...SERVICE,
+    id: "svc-geo",
+    name: "Jardinería",
+    location: { lat: 20.6736, lng: -103.344 },
+  };
+
+  beforeEach(() => {
+    mockGetServices.mockReset();
+  });
+
+  afterEach(() => {
+    clients.forEach((client) => client.clear());
+    clients.length = 0;
+    jest.useRealTimers();
+  });
+
+  test("starts on the list, so the map never costs anyone a map load they didn't ask for", async () => {
+    mockGetServices.mockResolvedValue(page([LOCATED]));
+    const { getByTestId, queryByTestId } = await renderCatalog(<CatalogScreen />);
+
+    await waitFor(() => expect(getByTestId("catalog-list")).toBeTruthy());
+    expect(queryByTestId("services-map")).toBeNull();
+  });
+
+  test("swaps the list for the map and back", async () => {
+    mockGetServices.mockResolvedValue(page([LOCATED]));
+    const { getByTestId, queryByTestId } = await renderCatalog(<CatalogScreen />);
+
+    await waitFor(() => expect(getByTestId("catalog-list")).toBeTruthy());
+
+    await fireEvent.press(getByTestId("catalog-view-map"));
+    expect(getByTestId("services-map")).toBeTruthy();
+    expect(queryByTestId("catalog-list")).toBeNull();
+
+    await fireEvent.press(getByTestId("catalog-view-list"));
+    expect(getByTestId("catalog-list")).toBeTruthy();
+    expect(queryByTestId("services-map")).toBeNull();
+  });
+
+  test("tapping a marker surfaces that service's card", async () => {
+    mockGetServices.mockResolvedValue(page([LOCATED]));
+    const { getByTestId, queryByTestId } = await renderCatalog(<CatalogScreen />);
+
+    await waitFor(() => expect(getByTestId("catalog-list")).toBeTruthy());
+    await fireEvent.press(getByTestId("catalog-view-map"));
+
+    // Nothing selected yet: the map prompts instead of showing a stale card.
+    expect(queryByTestId("catalog-map-selection")).toBeNull();
+
+    await fireEvent.press(getByTestId("services-map-marker-svc-geo"));
+
+    const selection = getByTestId("catalog-map-selection");
+    expect(selection).toBeTruthy();
+    // The same card component the list renders — one selection, two views.
+    expect(getByTestId("service-card-svc-geo")).toBeTruthy();
+  });
+
+  test("shows how far away a service is when the API measured it", async () => {
+    mockGetServices.mockResolvedValue(
+      page([{ ...LOCATED, distanceKm: 2.34 }]),
+    );
+    const { getByText } = await renderCatalog(<CatalogScreen />);
+
+    await waitFor(() => expect(getByText(/2\.3 km/)).toBeTruthy());
+  });
+
+  test("omits the distance when there was no centre to measure from", async () => {
+    mockGetServices.mockResolvedValue(page([LOCATED]));
+    const { getByText, queryByText, getByTestId } = await renderCatalog(
+      <CatalogScreen />,
+    );
+
+    await waitFor(() => expect(getByTestId("catalog-list")).toBeTruthy());
+    // The provider line stands alone: an absent distance must read as
+    // "unknown", never as "0 m away".
+    expect(getByText("CleanPro")).toBeTruthy();
+    expect(queryByText(/CleanPro · a /)).toBeNull();
+  });
+});
