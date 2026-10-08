@@ -286,8 +286,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   mapArea: {
+    // No bottom margin: the map fills the area and the floating pieces below
+    // clear the tab bar themselves. Shrinking the map instead left a dead white
+    // strip above the tabs.
     flex: 1,
-    marginBottom: BottomTabInset,
     borderRadius: Spacing.two,
     overflow: "hidden",
   },
@@ -295,12 +297,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: Spacing.two,
     right: Spacing.two,
-    bottom: Spacing.two,
+    bottom: BottomTabInset + Spacing.two,
   },
   mapHint: {
     position: "absolute",
     alignSelf: "center",
-    bottom: Spacing.three,
+    bottom: BottomTabInset + Spacing.three,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: 999,
