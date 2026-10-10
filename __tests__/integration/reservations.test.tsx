@@ -26,12 +26,21 @@ import { MyReservationsScreen } from "@/features/reservations/screens/my-reserva
 import { apiUrl, server } from "../helpers/msw-server";
 
 const RESERVATIONS_URL = apiUrl("/api/reservations");
-
 const SERVICE = {
   id: "665f1b2c9a1b2c3d4e5f6a7b",
   name: "Limpieza de hogar",
   priceFromCents: 45000,
 };
+const AVAILABILITY_URL = apiUrl(`/api/services/${SERVICE.id}/availability`);
+
+/**
+ * Two free hours on the same day. The picker no longer invents slots — the
+ * server publishes them — so every booking test needs this handler.
+ */
+const AVAILABLE_SLOTS = [
+  "2099-06-01T15:00:00.000Z",
+  "2099-06-01T16:00:00.000Z",
+];
 
 const API_RESERVATION = {
   _id: "771a2b3c4d5e6f7a8b9c0d1e",
@@ -63,6 +72,13 @@ async function bookFirstSlot(screen: Awaited<ReturnType<typeof render>>) {
 }
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeEach(() => {
+  server.use(
+    http.get(AVAILABILITY_URL, () =>
+      HttpResponse.json({ slots: AVAILABLE_SLOTS }),
+    ),
+  );
+});
 afterEach(() => {
   server.resetHandlers();
   clients.forEach((client) => client.clear());
@@ -270,5 +286,105 @@ describe("listar y cancelar", () => {
     await waitFor(() =>
       expect(screen.getByTestId("reservations-empty")).toBeTruthy(),
     );
+  });
+});
+
+describe("disponibilidad real", () => {
+  test("offers only the hours the server published", async () => {
+    const screen = await renderWithClient(<BookingScreen service={SERVICE} />);
+
+    const slots = await screen.findAllByTestId(/^slot-hour-/);
+
+    // Exactly the two the handler returned — no locally invented 09:00–18:00.
+    expect(slots).toHaveLength(AVAILABLE_SLOTS.length);
+  });
+
+  test("says so when a service has nothing free", async () => {
+    server.use(http.get(AVAILABILITY_URL, () => HttpResponse.json({ slots: [] })));
+
+    const screen = await renderWithClient(<BookingScreen service={SERVICE} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("slot-picker-empty")).toBeTruthy(),
+    );
+  });
+
+  test("surfaces a slot taken by somebody else mid-flow", async () => {
+    // The race the unique index exists for: the hour was free when the picker
+    // loaded and gone by the time this user confirmed.
+    server.use(
+      http.post(RESERVATIONS_URL, () =>
+        HttpResponse.json(
+          { message: "Ese horario ya está reservado" },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const screen = await renderWithClient(<BookingScreen service={SERVICE} />);
+    await bookFirstSlot(screen);
+
+    expect(await screen.findByTestId("booking-error")).toBeTruthy();
+  });
+});
+
+describe("confirmación del proveedor", () => {
+  const PENDING_PAST_OWNER = {
+    ...API_RESERVATION,
+    scheduledFor: "2099-06-01T18:00:00.000Z",
+    status: "pending" as const,
+  };
+
+  test("a provider can accept a pending booking", async () => {
+    let confirmed = false;
+
+    server.use(
+      http.get(RESERVATIONS_URL, () =>
+        HttpResponse.json({
+          data: [
+            confirmed
+              ? { ...PENDING_PAST_OWNER, status: "confirmed" }
+              : PENDING_PAST_OWNER,
+          ],
+        }),
+      ),
+      http.post(`${RESERVATIONS_URL}/${API_RESERVATION._id}/confirm`, () => {
+        confirmed = true;
+        return HttpResponse.json({
+          reservation: { ...PENDING_PAST_OWNER, status: "confirmed" },
+        });
+      }),
+    );
+
+    const screen = await renderWithClient(<MyReservationsScreen />);
+
+    // The inbox is the provider side; the customer tab never offers this.
+    await fireEvent.press(screen.getByTestId("reservations-role-provider"));
+
+    const confirm = await screen.findByTestId(
+      `reservation-confirm-${API_RESERVATION._id}`,
+    );
+    await fireEvent.press(confirm);
+
+    await waitFor(() => expect(screen.getByText("Confirmada")).toBeTruthy());
+  });
+
+  test("the customer side never shows a confirm button", async () => {
+    server.use(
+      http.get(RESERVATIONS_URL, () =>
+        HttpResponse.json({ data: [PENDING_PAST_OWNER] }),
+      ),
+    );
+
+    const screen = await renderWithClient(<MyReservationsScreen />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(`reservation-card-${API_RESERVATION._id}`),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByTestId(`reservation-confirm-${API_RESERVATION._id}`),
+    ).toBeNull();
   });
 });

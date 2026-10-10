@@ -13,7 +13,10 @@ import { formatPriceMXN } from "@/shared/lib/format-price";
 
 import type { Reservation, ReservationRole } from "../domain/types";
 import { formatSlotFull } from "../lib/booking-slots";
-import { useCancelReservationMutation } from "../queries/use-reservation-mutations";
+import {
+  useCancelReservationMutation,
+  useConfirmReservationMutation,
+} from "../queries/use-reservation-mutations";
 import { useReservationsQuery } from "../queries/use-reservations-query";
 
 const STATUS_LABELS: Record<Reservation["status"], string> = {
@@ -37,8 +40,11 @@ function errorHint(error: unknown): string {
 function ReservationRow({
   reservation,
   now,
+  role,
 }: {
   reservation: Reservation;
+  /** Which side is looking: only a provider sees "Confirmar". */
+  role: ReservationRole;
   /**
    * Pinned by the screen rather than read here: `Date.now()` during render is
    * impure, and the React Compiler is free to memoize a render — which would
@@ -48,7 +54,14 @@ function ReservationRow({
 }) {
   const router = useRouter();
   const { mutate, isPending } = useCancelReservationMutation();
+  const confirm = useConfirmReservationMutation();
   const cancelled = reservation.status === "cancelled";
+  // Confirming a slot that already passed does nothing, and the API rejects
+  // it, so the button only shows where it would actually work.
+  const confirmable =
+    role === "provider" &&
+    reservation.status === "pending" &&
+    new Date(reservation.scheduledFor).getTime() > now;
   // Only a booking that already happened can be rated — the API enforces it
   // too, but offering the button would just produce a 409.
   const reviewable =
@@ -71,6 +84,17 @@ function ReservationRow({
         {/* The agreed price, not today's — the provider may have repriced. */}
         {formatPriceMXN(reservation.priceAtBookingCents)}
       </ThemedText>
+
+      {confirmable ? (
+        <Button
+          label="Confirmar"
+          variant="primary"
+          size="sm"
+          loading={confirm.isPending}
+          testID={`reservation-confirm-${reservation.id}`}
+          onPress={() => confirm.mutate(reservation.id)}
+        />
+      ) : null}
 
       {reviewable ? (
         <Button
@@ -170,7 +194,7 @@ export function MyReservationsScreen() {
             data={data}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <ReservationRow reservation={item} now={now} />
+              <ReservationRow reservation={item} now={now} role={role} />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}

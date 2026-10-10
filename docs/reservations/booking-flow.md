@@ -28,8 +28,12 @@ App                                   Backend
  └─ router.replace("/my-reservations")
 ```
 
-El estado inicial es `pending`: la confirmación del proveedor llega en la
-parte 2.
+El estado inicial es `pending`. El proveedor la acepta desde su bandeja
+(**Mis reservas → Me reservaron**), y eso cierra el ciclo cliente → proveedor.
+
+Confirmar es **idempotente**: hacerlo dos veces deja el mismo estado, así que
+un reintento desde una conexión mala no falla. No se puede confirmar una
+reserva cancelada ni una que ya pasó.
 
 ## Idempotencia
 
@@ -107,6 +111,10 @@ la reserva existe.
 | Reservar tu propio servicio | `409` | No tiene sentido y rompería el flujo cliente → proveedor |
 | Servicio del catálogo sembrado (sin `owner`) | `409` | No hay nadie que se presente; fallar cerrado |
 | Hueco en el pasado | `400` | Validado en el esquema, no solo en la UI |
+| Hueco ya tomado por otro | `409` | Índice único sobre `activeSlot` |
+| Confirmar sin ser el proveedor | `404` | No debe aprender que existe |
+| Confirmar una reserva ya pasada | `409` | No significa nada |
+| Confirmar dos veces | `200` | Idempotente: mismo estado, retry seguro |
 | Hueco a más de un año | `400` | Cota de cordura: es un bug o un ataque, nunca un usuario |
 | `Idempotency-Key` ausente | `400` | Sin clave, un reintento es indistinguible de una segunda reserva |
 | Clave con espacios | `400` | Dos claves que se ven iguales en un log y no lo son |
@@ -115,16 +123,52 @@ la reserva existe.
 | El proveedor sube el precio después | La reserva mantiene el precio pactado | `priceAtBookingCents` es una instantánea, no un join |
 | El servicio cambia de dueño | La reserva mantiene su proveedor | `provider` se copia al reservar |
 
-### Lo que *no* cubre esta parte
+## Disponibilidad: el otro problema
 
-**Dos clientes pueden reservar el mismo hueco.** La idempotencia evita
-duplicados del *mismo* cliente; no es un bloqueo de agenda. Impedirlo requiere
-disponibilidad real del proveedor, que es la parte 2. Son dos problemas
-distintos y conviene no confundirlos: uno es "no dupliques mi petición", el otro
-es "ese hueco ya está ocupado".
+La idempotencia evita duplicados del *mismo* cliente. **No** es un bloqueo de
+agenda: que dos clientes distintos no pisen el mismo hueco es un problema
+aparte, y se resuelve aparte.
 
-Los horarios que ofrece el picker (09:00–18:00, todos los días) son un
-placeholder por la misma razón.
+### Un hueco, una reserva viva
+
+Cada reserva activa guarda un `activeSlot` (`servicioId:instante`) con un
+**índice único**. Mismo razonamiento que la clave de idempotencia: dos clientes
+enviando a la vez pasarían los dos una comprobación de tipo "¿está libre?".
+
+Cancelar **borra el campo** (no lo pone a `null`), y el índice parcial
+—`partialFilterExpression: { activeSlot: { $exists: true } }`— deja de verlo.
+Eso es lo que libera la hora.
+
+Los dos índices únicos pueden saltar en el mismo `create` y significan cosas
+opuestas, así que el handler los distingue por el mensaje del error:
+
+| Índice | Significado | Respuesta |
+| --- | --- | --- |
+| `activeSlot` | Otro cliente ya tiene esa hora | `409` |
+| `customer + idempotencyKey` | Tú enviaste dos veces | replay (`200`) |
+
+Confundirlos devolvería al usuario una reserva que no es suya.
+
+### Horarios reales, no inventados
+
+La app ya no genera huecos. `GET /api/services/:id/availability` devuelve los
+horarios del proveedor menos lo que ya está reservado, y el picker pinta eso.
+
+Antes se ofrecía 09:00–18:00 fijo desde el cliente, lo que significaba enseñar
+horas que el proveedor no trabaja y horas que otro ya había tomado: el error
+solo aparecía **después** de confirmar.
+
+La disponibilidad se calcula en cada petición, nunca se guarda: una tabla
+cacheada está desactualizada en cuanto alguien reserva, y las dos entradas
+(horario del proveedor, reservas vivas) están a una consulta indexada.
+
+Un proveedor edita sus horarios en **Perfil → Mis horarios**.
+
+> **Una simplificación consciente:** las horas se interpretan en un único huso,
+> UTC−6. El producto sirve a Guadalajara y México eliminó el horario de verano
+> en 2022, así que es correcto además de cómodo. Un proveedor en otro huso
+> necesitaría una zona IANA por usuario; la constante
+> `MARKET_UTC_OFFSET_HOURS` es la costura por donde entraría.
 
 ## Endpoints
 
@@ -133,6 +177,8 @@ placeholder por la misma razón.
 | `POST` | `/api/reservations` | Reserva un hueco. Requiere `Idempotency-Key` |
 | `GET` | `/api/reservations` | Tus reservas. `?role=provider` para la bandeja de proveedor |
 | `POST` | `/api/reservations/:id/cancel` | Cancela, desde cualquiera de las dos partes |
+| `POST` | `/api/reservations/:id/confirm` | El **proveedor** acepta la reserva |
+| `GET` | `/api/services/:id/availability` | Horas libres (pública) |
 
 Todos con Bearer JWT y documentados en `/api-doc`. El `GET` está **siempre**
 acotado al usuario autenticado: no existe una consulta de "todas las reservas"

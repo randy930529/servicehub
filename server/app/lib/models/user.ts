@@ -1,3 +1,4 @@
+import { DEFAULT_WORKING_HOURS } from "@/app/lib/helpers/availability";
 import {
   Schema,
   model,
@@ -16,6 +17,18 @@ const refreshTokenSchema = new Schema(
     expiresAt: { type: Date, required: true },
   },
   { _id: false, timestamps: { createdAt: true, updatedAt: false } },
+);
+
+/** Weekly schedule. Hours are market-local; see `helpers/availability.ts`. */
+const workingHoursSchema = new Schema(
+  {
+    startHour: { type: Number, required: true, min: 0, max: 23 },
+    /** Exclusive: 18 means the 17:00 slot is the last one of the day. */
+    endHour: { type: Number, required: true, min: 1, max: 24 },
+    /** 0 = Sunday, matching `Date.getUTCDay()`. */
+    weekdays: { type: [Number], required: true },
+  },
+  { _id: false },
 );
 
 const userSchema = new Schema(
@@ -42,6 +55,16 @@ const userSchema = new Schema(
     avatarKey: { type: String, default: null },
     /** Active sessions (one per device); pruned of expired entries on refresh. */
     refreshTokens: { type: [refreshTokenSchema], default: [] },
+    /**
+     * When this user, acting as a provider, takes bookings. Market-local
+     * hours (see `helpers/availability.ts`). Everyone gets the default until
+     * they change it, so a provider who never opens this screen is still
+     * bookable.
+     */
+    workingHours: {
+      type: workingHoursSchema,
+      default: () => ({ ...DEFAULT_WORKING_HOURS }),
+    },
   },
   { timestamps: true },
 );

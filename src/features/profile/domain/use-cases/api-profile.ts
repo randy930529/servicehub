@@ -1,4 +1,4 @@
-import type { UserProfile } from "../types";
+import { DEFAULT_WORKING_HOURS, type UserProfile, type WorkingHours } from "../types";
 
 /**
  * Profile payload as returned by the API (`GET`/`PATCH /api/users/me` and both
@@ -12,6 +12,7 @@ export interface ApiProfileResponse {
     bio: string;
     phone: string;
     avatarUrl: string | null;
+    workingHours?: WorkingHours;
   };
 }
 
@@ -25,5 +26,6 @@ export function toUserProfile({ user }: ApiProfileResponse): UserProfile {
     bio: user.bio ?? "",
     phone: user.phone ?? "",
     avatarUrl: user.avatarUrl ?? null,
+    workingHours: user.workingHours ?? DEFAULT_WORKING_HOURS,
   };
 }

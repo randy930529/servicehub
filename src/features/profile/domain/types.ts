@@ -14,13 +14,35 @@ export interface UserProfile {
   phone: string;
   /** Absolute URL of the avatar, or `null` when the user has none. */
   avatarUrl: string | null;
+  /** When this user takes bookings, as a provider. */
+  workingHours: WorkingHours;
 }
+
+/**
+ * A provider's weekly schedule, in market-local hours.
+ *
+ * `endHour` is exclusive: 18 means the 17:00 slot is the last of the day.
+ * `weekdays` uses 0 = Sunday.
+ */
+export interface WorkingHours {
+  startHour: number;
+  endHour: number;
+  weekdays: number[];
+}
+
+/** What a provider gets until they change it. Mirrors the API's default. */
+export const DEFAULT_WORKING_HOURS: WorkingHours = {
+  startHour: 9,
+  endHour: 18,
+  weekdays: [1, 2, 3, 4, 5, 6],
+};
 
 /** Fields a user can change. Partial: a PATCH only sends what changed. */
 export interface ProfileUpdate {
   name?: string;
   bio?: string;
   phone?: string;
+  workingHours?: WorkingHours;
 }
 
 /**

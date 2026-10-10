@@ -62,6 +62,7 @@ const PROFILE: UserProfile = {
   bio: "Electricista",
   phone: "+52 33 1234 5678",
   avatarUrl: "http://localhost:9000/avatars/user-1/a1b2.jpg",
+  workingHours: { startHour: 9, endHour: 18, weekdays: [1, 2, 3, 4, 5, 6] },
 };
 
 const PICKED_IMAGE = {

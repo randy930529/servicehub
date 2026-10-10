@@ -22,4 +22,6 @@ export const reservationsKeys = {
   lists: () => [...reservationsKeys.all, "list"] as const,
   list: (filters: ReservationFilters = {}) =>
     [...reservationsKeys.lists(), filtersKey(filters)] as const,
+  availability: (serviceId: string) =>
+    [...reservationsKeys.all, "availability", serviceId] as const,
 };

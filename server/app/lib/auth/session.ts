@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import type { SubmitError } from "@/app/lib/core";
 import { PublicUserType, SessionResponseType } from "@/app/lib/definitions";
+import { DEFAULT_WORKING_HOURS } from "@/app/lib/helpers/availability";
 import { User, type UserDocument } from "@/app/lib/models";
 import { connectToDatabase } from "@/app/lib/mongoose";
 import { buildAvatarUrl } from "@/app/lib/storage";
@@ -24,6 +25,11 @@ export function toPublicUser(
     phone: user.phone ?? "",
     // Derived from the stored key — the key itself never leaves the server.
     avatarUrl: buildAvatarUrl(user.avatarKey),
+    workingHours: {
+      startHour: user.workingHours?.startHour ?? DEFAULT_WORKING_HOURS.startHour,
+      endHour: user.workingHours?.endHour ?? DEFAULT_WORKING_HOURS.endHour,
+      weekdays: user.workingHours?.weekdays ?? DEFAULT_WORKING_HOURS.weekdays,
+    },
   };
 }
 

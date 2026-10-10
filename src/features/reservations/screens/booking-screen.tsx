@@ -97,7 +97,11 @@ export function BookingScreen({ service, reviews }: BookingScreenProps) {
 
         {step === "slot" ? (
           <>
-            <SlotPicker selected={slot} onSelect={setSlot} />
+            <SlotPicker
+              serviceId={service.id}
+              selected={slot}
+              onSelect={setSlot}
+            />
             {reviews}
           </>
         ) : (

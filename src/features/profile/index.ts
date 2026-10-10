@@ -3,6 +3,7 @@
 // Screens
 export { EditProfileScreen } from "./screens/edit-profile-screen";
 export { ProfileScreen } from "./screens/profile-screen";
+export { WorkingHoursScreen } from "./screens/working-hours-screen";
 
 // Components
 export { Avatar, getInitials } from "./components/avatar";
