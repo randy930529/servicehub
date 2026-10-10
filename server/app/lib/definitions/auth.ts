@@ -24,6 +24,16 @@ export type PublicUserType = {
    * when the user hasn't uploaded one. The key itself stays server-side.
    */
   avatarUrl: string | null;
+  /**
+   * When this user takes bookings, as a provider. Always present — everyone
+   * gets the default schedule until they change it, so the app never has to
+   * decide what "no hours" means.
+   */
+  workingHours: {
+    startHour: number;
+    endHour: number;
+    weekdays: number[];
+  };
 };
 
 /** Body returned by every endpoint that opens/renews a session. */

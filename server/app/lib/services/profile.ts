@@ -76,10 +76,11 @@ export class UpdateProfile extends ZodSubmitHandler<
 
     // Assign only the keys actually sent, so a PATCH never blanks a field the
     // client didn't mention.
-    const { name, bio, phone } = parsed.data;
+    const { name, bio, phone, workingHours } = parsed.data;
     if (name !== undefined) auth.user.name = name;
     if (bio !== undefined) auth.user.bio = bio;
     if (phone !== undefined) auth.user.phone = phone;
+    if (workingHours !== undefined) auth.user.set("workingHours", workingHours);
     await auth.user.save();
 
     return NextResponse.json({ user: toPublicUser(auth.user) });

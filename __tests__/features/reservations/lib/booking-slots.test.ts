@@ -1,93 +1,81 @@
 import { describe, expect, test } from "@jest/globals";
 
 import {
-  BOOKABLE_DAYS,
-  buildBookableDays,
-  buildDaySlots,
-  CLOSING_HOUR,
   formatDayLabel,
   formatSlotLabel,
+  groupSlotsByDay,
   isSameDay,
-  MIN_NOTICE_MINUTES,
-  OPENING_HOUR,
   startOfDay,
 } from "@/features/reservations/lib/booking-slots";
 
 /** A fixed "now" so none of this depends on when the suite runs. */
-const NOW = new Date(2026, 9, 10, 11, 30); // 10 Oct 2026, 11:30 local
+const NOW = new Date(2026, 9, 12, 8, 0); // Mon 12 Oct 2026, 08:00 local
 
-describe("buildBookableDays", () => {
-  test("starts today and runs two weeks", () => {
-    const days = buildBookableDays(NOW);
+function at(day: number, hour: number): Date {
+  return new Date(2026, 9, day, hour, 0, 0, 0);
+}
 
-    expect(days).toHaveLength(BOOKABLE_DAYS);
-    expect(isSameDay(days[0], NOW)).toBe(true);
+describe("groupSlotsByDay", () => {
+  test("groups consecutive slots of the same day", () => {
+    const groups = groupSlotsByDay([at(12, 9), at(12, 10), at(12, 11)]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].slots).toHaveLength(3);
+    expect(isSameDay(groups[0].day, at(12, 0))).toBe(true);
   });
 
-  test("every day is midnight, so days compare as days", () => {
-    for (const day of buildBookableDays(NOW, 3)) {
-      expect(day.getHours()).toBe(0);
-      expect(day.getMinutes()).toBe(0);
-    }
+  test("starts a new group when the day changes", () => {
+    const groups = groupSlotsByDay([at(12, 17), at(13, 9)]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].slots).toHaveLength(1);
+    expect(groups[1].slots).toHaveLength(1);
   });
 
-  test("crosses a month boundary without repeating a date", () => {
-    // 28 Feb + 3 days must not stall on the 28th.
-    const days = buildBookableDays(new Date(2027, 1, 28), 3);
+  test("keeps the server's order instead of re-sorting", () => {
+    // The API already returns slots soonest-first; re-sorting here would be a
+    // second source of truth about ordering.
+    const groups = groupSlotsByDay([at(12, 9), at(13, 9), at(14, 9)]);
 
-    expect(days.map((d) => d.getDate())).toEqual([28, 1, 2]);
-  });
-});
-
-describe("buildDaySlots", () => {
-  test("offers opening to closing on a future day", () => {
-    const tomorrow = startOfDay(new Date(2026, 9, 11));
-    const slots = buildDaySlots(tomorrow, NOW);
-
-    expect(slots).toHaveLength(CLOSING_HOUR - OPENING_HOUR);
-    expect(slots[0].getHours()).toBe(OPENING_HOUR);
-    expect(slots.at(-1)?.getHours()).toBe(CLOSING_HOUR - 1);
+    expect(groups.map((g) => g.day.getDate())).toEqual([12, 13, 14]);
   });
 
-  test("drops hours already past today", () => {
-    const slots = buildDaySlots(startOfDay(NOW), NOW);
-
-    // 11:30 now + 60 min notice: 09:00..12:00 are gone, 13:00 is the first.
-    expect(slots[0].getHours()).toBe(13);
+  test("returns nothing for an empty availability", () => {
+    // A service with no free hours produces no day chips at all, which is the
+    // honest answer — an empty day in the strip would be noise.
+    expect(groupSlotsByDay([])).toEqual([]);
   });
 
-  test("respects the notice window rather than only the clock", () => {
-    // 12:10 — the 13:00 slot is in the future but inside the notice window.
-    const slots = buildDaySlots(startOfDay(NOW), new Date(2026, 9, 10, 12, 10));
+  test("groups a day that has a single slot left", () => {
+    const groups = groupSlotsByDay([at(12, 16)]);
 
-    expect(slots[0].getHours()).toBe(14);
-    expect(MIN_NOTICE_MINUTES).toBe(60);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].slots).toEqual([at(12, 16)]);
   });
 
-  test("returns nothing once the day is over, instead of yesterday's hours", () => {
-    const slots = buildDaySlots(startOfDay(NOW), new Date(2026, 9, 10, 23, 0));
+  test("normalizes the group day to midnight", () => {
+    const groups = groupSlotsByDay([at(12, 15)]);
 
-    expect(slots).toEqual([]);
+    expect(groups[0].day.getHours()).toBe(0);
+    expect(groups[0].day).toEqual(startOfDay(at(12, 15)));
   });
 });
 
 describe("labels", () => {
   test("names today and tomorrow instead of dates", () => {
-    const days = buildBookableDays(NOW, 3);
-
-    expect(formatDayLabel(days[0], NOW)).toBe("Hoy");
-    expect(formatDayLabel(days[1], NOW)).toBe("Mañana");
+    expect(formatDayLabel(at(12, 0), NOW)).toBe("Hoy");
+    expect(formatDayLabel(at(13, 0), NOW)).toBe("Mañana");
   });
 
   test("falls back to weekday and day number further out", () => {
-    const days = buildBookableDays(NOW, 3);
+    const label = formatDayLabel(at(15, 0), NOW);
 
-    expect(formatDayLabel(days[2], NOW)).toMatch(/\d+$/);
-    expect(formatDayLabel(days[2], NOW)).not.toBe("Hoy");
+    expect(label).not.toBe("Hoy");
+    expect(label).toMatch(/15$/);
   });
 
   test("pads the hour to 24h, with no AM/PM to misread", () => {
-    expect(formatSlotLabel(new Date(2026, 9, 11, 9, 0))).toBe("09:00");
-    expect(formatSlotLabel(new Date(2026, 9, 11, 17, 0))).toBe("17:00");
+    expect(formatSlotLabel(at(12, 9))).toBe("09:00");
+    expect(formatSlotLabel(at(12, 17))).toBe("17:00");
   });
 });

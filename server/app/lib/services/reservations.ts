@@ -3,11 +3,20 @@ import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
 
 import { authenticateRequest, authErrorResponse } from "@/app/lib/auth";
+import {
+  buildAvailability,
+  buildSlotKey,
+  DEFAULT_AVAILABILITY_DAYS,
+  DEFAULT_WORKING_HOURS,
+  MAX_AVAILABILITY_DAYS,
+  type WorkingHoursType,
+} from "@/app/lib/helpers";
 import { ZodSubmitHandler, type SubmitError } from "@/app/lib/core";
 import type { PublicReservationType } from "@/app/lib/definitions";
 import {
   Reservation,
   Service,
+  User,
   type ReservationDocument,
   type ReservationStatus,
 } from "@/app/lib/models";
@@ -163,6 +172,7 @@ export class CreateReservation extends ZodSubmitHandler<
         // agreed today.
         priceAtBookingCents: service.priceFromCents,
         idempotencyKey: idempotency.key,
+        activeSlot: buildSlotKey(serviceId, scheduledFor),
       });
 
       await reservation.populate("service", "name imageKey");
@@ -173,6 +183,22 @@ export class CreateReservation extends ZodSubmitHandler<
       );
     } catch (error) {
       if (!isDuplicateKeyError(error)) throw error;
+
+      // Two unique indexes can fire here and they mean opposite things:
+      // `activeSlot` is "somebody else already has this hour" (a real
+      // conflict), `idempotencyKey` is "you sent this twice" (a replay).
+      // Answering a taken slot with a replay would hand the user a booking
+      // that is not theirs.
+      if (String((error as { message?: string }).message).includes("activeSlot")) {
+        return this.handleError(
+          {
+            type: "VALIDATION_ERROR",
+            message: "Ese horario ya está reservado",
+          },
+          409,
+        );
+      }
+
       return this.replay(idempotency.key, auth.user.id, serviceId, scheduledFor);
     }
   }
@@ -275,6 +301,9 @@ export async function cancelReservation(
 
   reservation.status = "cancelled";
   reservation.cancelledAt = new Date();
+  // Unset, not null: the partial index skips documents without the field, so
+  // this is what actually frees the hour for somebody else.
+  reservation.set("activeSlot", undefined);
   await reservation.save();
 
   return { ok: true, reservation: toPublicReservation(reservation) };
@@ -310,4 +339,107 @@ export async function listReservations(
   return reservations.map((item) =>
     toPublicReservation(item as unknown as ReservationSourceType),
   );
+}
+
+type ConfirmResultType =
+  | { ok: true; reservation: PublicReservationType }
+  | { ok: false; status: number; message: string };
+
+/**
+ * `POST /api/reservations/:id/confirm` — the provider accepts a booking.
+ *
+ * The other half of the client → provider flow: until now `confirmed` existed
+ * in the enum with no way to reach it. Only the provider may confirm; the
+ * customer already expressed their intent by booking.
+ */
+export async function confirmReservation(
+  id: string,
+  userId: string,
+): Promise<ConfirmResultType> {
+  if (!isValidObjectId(id)) {
+    return { ok: false, status: 404, message: "Reservation not found" };
+  }
+
+  await connectToDatabase();
+
+  const reservation = await Reservation.findById(id).populate(
+    "service",
+    "name imageKey",
+  );
+
+  // Not found and not-mine answer alike: a 403 would confirm it exists.
+  if (!reservation || String(reservation.provider) !== userId) {
+    return { ok: false, status: 404, message: "Reservation not found" };
+  }
+
+  if (reservation.status === "cancelled") {
+    return {
+      ok: false,
+      status: 409,
+      message: "Cannot confirm a cancelled reservation",
+    };
+  }
+
+  // Idempotent: confirming twice leaves the same state, so a retry from a
+  // flaky phone succeeds instead of erroring.
+  if (reservation.status === "confirmed") {
+    return { ok: true, reservation: toPublicReservation(reservation) };
+  }
+
+  if (reservation.scheduledFor.getTime() < Date.now()) {
+    return {
+      ok: false,
+      status: 409,
+      message: "Cannot confirm a reservation that already passed",
+    };
+  }
+
+  reservation.status = "confirmed";
+  await reservation.save();
+
+  return { ok: true, reservation: toPublicReservation(reservation) };
+}
+
+/**
+ * `GET /api/services/:id/availability` — the hours this service has free.
+ *
+ * Computed, never stored: a cached availability table is wrong the moment
+ * somebody books, and the inputs (the provider's hours, the live bookings)
+ * are both one indexed read away.
+ */
+export async function getServiceAvailability(
+  serviceId: string,
+  days: number = DEFAULT_AVAILABILITY_DAYS,
+): Promise<{ slots: Date[] } | null> {
+  if (!isValidObjectId(serviceId)) return null;
+
+  await connectToDatabase();
+
+  const service = await Service.findById(serviceId).select("owner");
+  if (!service) return null;
+
+  // The seeded catalog has no owner, so nobody can show up: no hours.
+  if (!service.owner) return { slots: [] };
+
+  const provider = await User.findById(service.owner).select("workingHours");
+
+  const horizon = Math.min(Math.max(1, days), MAX_AVAILABILITY_DAYS);
+
+  // Only live bookings block an hour; a cancelled one released it.
+  const booked = await Reservation.find({
+    service: serviceId,
+    activeSlot: { $exists: true },
+    scheduledFor: { $gte: new Date() },
+  }).select("scheduledFor");
+
+  return {
+    slots: buildAvailability({
+      workingHours:
+        (provider?.workingHours as WorkingHoursType | undefined) ??
+        DEFAULT_WORKING_HOURS,
+      taken: booked.map((item) => item.scheduledFor),
+      now: new Date(),
+      days: horizon,
+    }),
+  };
 }

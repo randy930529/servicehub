@@ -35,6 +35,7 @@ const DOMAIN_PROFILE = {
   bio: "Electricista",
   phone: "+52 33 1234 5678",
   avatarUrl: "http://localhost:9000/avatars/user-1/a1b2.jpg",
+  workingHours: { startHour: 9, endHour: 18, weekdays: [1, 2, 3, 4, 5, 6] },
 };
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -64,6 +65,9 @@ describe("getProfile", () => {
       bio: "",
       phone: "",
       avatarUrl: null,
+      // Absent from the payload: everyone is bookable on the default schedule
+      // until they change it, so the mapper fills it rather than leaving a hole.
+    workingHours: { startHour: 9, endHour: 18, weekdays: [1, 2, 3, 4, 5, 6] },
     });
   });
 

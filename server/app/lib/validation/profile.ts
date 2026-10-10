@@ -22,8 +22,28 @@ export const BIO_MAX = 280;
  * must change at least one thing. Empty strings are allowed for `bio`/`phone`
  * so a user can clear them.
  */
+/**
+ * A provider's weekly schedule. `endHour` is exclusive, and the refinement is
+ * what stops a "schedule" that can never produce a slot — the API would
+ * otherwise accept 18→9 and silently publish nothing.
+ */
+export const WorkingHoursSchema = z
+  .object({
+    startHour: z.number().int().min(0).max(23),
+    endHour: z.number().int().min(1).max(24),
+    /** 0 = Sunday. Deduplicated so [1,1,2] cannot inflate anything later. */
+    weekdays: z
+      .array(z.number().int().min(0).max(6))
+      .transform((days) => [...new Set(days)].sort((a, b) => a - b)),
+  })
+  .refine((hours) => hours.endHour > hours.startHour, {
+    message: "End hour must be after start hour",
+    path: ["endHour"],
+  });
+
 export const UpdateProfileSchema = z
   .object({
+    workingHours: WorkingHoursSchema,
     name: z.string().trim().min(NAME_MIN).max(NAME_MAX),
     bio: z.string().trim().max(BIO_MAX),
     phone: z

@@ -107,6 +107,15 @@ export function ProfileScreen() {
       />
 
       <Button
+        label="Mis horarios"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-working-hours-button"
+        onPress={() => router.push("/working-hours")}
+      />
+
+      <Button
         label="Mis reservas"
         variant="outline"
         size="lg"

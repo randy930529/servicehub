@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { ReservationInput } from "../domain/types";
-import { cancelReservation, createReservation } from "../domain/use-cases";
+import {
+  cancelReservation,
+  confirmReservation,
+  createReservation,
+} from "../domain/use-cases";
 import { reservationsKeys } from "./keys";
 
 /**
@@ -18,6 +22,11 @@ function useReservationsInvalidator() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: reservationsKeys.lists() });
+    // Booking or cancelling takes or frees an hour, so every availability
+    // view is stale the moment either succeeds.
+    void queryClient.invalidateQueries({
+      queryKey: [...reservationsKeys.all, "availability"],
+    });
   };
 }
 
@@ -33,6 +42,16 @@ export function useCreateReservationMutation() {
 
   return useMutation({
     mutationFn: (input: ReservationInput) => createReservation(input),
+    onSuccess: invalidateLists,
+  });
+}
+
+/** The provider accepts a booking. */
+export function useConfirmReservationMutation() {
+  const invalidateLists = useReservationsInvalidator();
+
+  return useMutation({
+    mutationFn: (id: string) => confirmReservation(id),
     onSuccess: invalidateLists,
   });
 }

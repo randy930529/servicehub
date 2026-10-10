@@ -58,6 +58,13 @@ const reservationSchema = new Schema(
      */
     idempotencyKey: { type: String, required: true, trim: true },
     cancelledAt: { type: Date, default: null },
+    /**
+     * `serviceId:instant` while the booking holds the slot, **unset** once it
+     * is cancelled. The unique index below turns that into "one live booking
+     * per slot"; unsetting (rather than nulling) is what releases it, because
+     * a partial index on `$exists` skips documents without the field.
+     */
+    activeSlot: { type: String },
   },
   { timestamps: true },
 );
@@ -71,6 +78,18 @@ const reservationSchema = new Schema(
  * a duplicate-key error and the handler returns the first reservation.
  */
 reservationSchema.index({ customer: 1, idempotencyKey: 1 }, { unique: true });
+
+/**
+ * No two live bookings for the same service at the same instant.
+ *
+ * The database arbitrates, for the same reason the idempotency key does: two
+ * customers submitting at once would both pass a "is this slot free?" read.
+ * The partial filter is what lets a cancelled booking free its slot.
+ */
+reservationSchema.index(
+  { activeSlot: 1 },
+  { unique: true, partialFilterExpression: { activeSlot: { $exists: true } } },
+);
 
 /** "Mis reservas", newest slot first. */
 reservationSchema.index({ customer: 1, scheduledFor: -1 });
