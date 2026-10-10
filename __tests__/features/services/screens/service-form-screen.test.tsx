@@ -60,6 +60,8 @@ const SERVICE: Service = {
   category: "hogar",
   priceFromCents: 45000,
   rating: 4.8,
+  ratingAverage: 4.8,
+  reviewCount: 3,
   providerName: "CleanPro",
   imageUrl: "http://localhost:9000/service-images/user-1/a.jpg",
   ownerId: "user-1",

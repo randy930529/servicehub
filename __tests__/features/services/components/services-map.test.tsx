@@ -12,6 +12,8 @@ function buildService(overrides: Partial<Service> = {}): Service {
     category: "hogar",
     priceFromCents: 45000,
     rating: 4.5,
+    ratingAverage: 4.5,
+    reviewCount: 3,
     providerName: "Clean Co",
     imageUrl: null,
     ownerId: null,

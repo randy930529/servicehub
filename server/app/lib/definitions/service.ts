@@ -18,7 +18,11 @@ export type PublicServiceType = {
   description: string;
   category: ServiceCategory;
   priceFromCents: number;
+  /** Ranking score (Bayesian). The catalog sorts by it. */
   rating: number;
+  /** Plain mean of the reviews — the number to put on screen. */
+  ratingAverage: number;
+  reviewCount: number;
   providerName: string;
   imageUrl: string | null;
   /** Who can edit it; `null` for the seeded catalog, which nobody owns. */

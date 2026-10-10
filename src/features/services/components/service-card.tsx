@@ -46,7 +46,9 @@ export function ServiceCard({ service, onPress, footer }: ServiceCardProps) {
             {service.name}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            ★ {service.rating.toFixed(1)}
+            {service.reviewCount > 0
+              ? `★ ${service.ratingAverage.toFixed(1)} (${service.reviewCount})`
+              : "Sin reseñas"}
           </ThemedText>
         </View>
 

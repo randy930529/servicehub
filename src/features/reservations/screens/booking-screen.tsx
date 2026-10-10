@@ -32,6 +32,12 @@ function errorHint(error: unknown): string {
 
 export type BookingScreenProps = {
   service: BookableService;
+  /**
+   * The service's reviews, injected by the app layer. A node rather than a
+   * service id because reviews live in their own feature and features may not
+   * import each other — the route is the only place allowed to know both.
+   */
+  reviews?: React.ReactNode;
 };
 
 /**
@@ -40,7 +46,7 @@ export type BookingScreenProps = {
  * Deliberately not a wizard abstraction — there are two steps and there will
  * not be twenty. A local union beats a framework here.
  */
-export function BookingScreen({ service }: BookingScreenProps) {
+export function BookingScreen({ service, reviews }: BookingScreenProps) {
   const router = useRouter();
 
   const [step, setStep] = useState<BookingStep>("slot");
@@ -90,7 +96,10 @@ export function BookingScreen({ service }: BookingScreenProps) {
         </Card>
 
         {step === "slot" ? (
-          <SlotPicker selected={slot} onSelect={setSlot} />
+          <>
+            <SlotPicker selected={slot} onSelect={setSlot} />
+            {reviews}
+          </>
         ) : (
           <Card testID="booking-summary">
             <ThemedText type="small" themeColor="textSecondary">
