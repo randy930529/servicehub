@@ -14,6 +14,8 @@ export interface ApiService {
   category: ServiceCategory;
   priceFromCents: number;
   rating: number;
+  ratingAverage?: number;
+  reviewCount?: number;
   providerName: string;
   imageUrl?: string | null;
   ownerId?: string | null;
@@ -47,6 +49,9 @@ export function toService(api: ApiService): Service {
     category: api.category,
     priceFromCents: api.priceFromCents,
     rating: api.rating,
+    // Older payloads predate reputation; default rather than render NaN.
+    ratingAverage: api.ratingAverage ?? 0,
+    reviewCount: api.reviewCount ?? 0,
     providerName: api.providerName,
     imageUrl: api.imageUrl ?? null,
     ownerId: api.ownerId ?? null,

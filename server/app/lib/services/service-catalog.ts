@@ -45,6 +45,8 @@ type ServiceSourceType = {
   category: ServiceCategory;
   priceFromCents: number;
   rating: number;
+  ratingAverage?: number;
+  reviewCount?: number;
   providerName: string;
   owner?: unknown;
   imageKey?: string | null;
@@ -82,6 +84,8 @@ export function toPublicService(
     category: source.category,
     priceFromCents: source.priceFromCents,
     rating: source.rating,
+    ratingAverage: source.ratingAverage ?? 0,
+    reviewCount: source.reviewCount ?? 0,
     providerName: source.providerName,
     imageUrl: buildServiceImageUrl(source.imageKey),
     ownerId: source.owner ? String(source.owner) : null,

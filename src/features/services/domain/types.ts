@@ -25,8 +25,14 @@ export interface Service {
   category: ServiceCategory;
   /** Starting price in MXN cents (integer, avoids float rounding issues). */
   priceFromCents: number;
-  /** Average rating, 0–5. */
+  /**
+   * Ranking score, 0–5. A Bayesian average — the catalog sorts by it, but it
+   * is **not** the number to show: 4.4 when every review said 5 reads as a bug.
+   */
   rating: number;
+  /** Plain mean of the reviews, 0–5. This is the one to display. */
+  ratingAverage: number;
+  reviewCount: number;
   providerName: string;
   /** Absolute URL of the photo, or `null` when the service has none. */
   imageUrl: string | null;

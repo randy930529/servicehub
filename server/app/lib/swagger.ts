@@ -173,6 +173,27 @@ export function getOpenApiSpec() {
               },
             },
           },
+          Review: {
+            type: "object",
+            properties: {
+              _id: { type: "string" },
+              serviceId: { type: "string" },
+              authorName: { type: "string", example: "Randy" },
+              rating: { type: "integer", minimum: 1, maximum: 5 },
+              comment: { type: "string", nullable: true },
+              createdAt: { type: "string", format: "date-time" },
+            },
+          },
+          Reputation: {
+            type: "object",
+            description:
+              "Bayesian `score` is what the catalog sorts by; `average` is the plain mean and the one to display.",
+            properties: {
+              score: { type: "number", example: 4.43 },
+              average: { type: "number", example: 5 },
+              reviewCount: { type: "integer", example: 2 },
+            },
+          },
           Reservation: {
             type: "object",
             description:

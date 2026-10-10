@@ -2,6 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, StyleSheet } from "react-native";
 
 import { BookingScreen } from "@/features/reservations";
+import { ServiceReviews } from "@/features/reviews";
 import { useServiceQuery } from "@/features/services";
 import { ThemedText } from "@/shared/components/themed-text";
 import { ThemedView } from "@/shared/components/themed-view";
@@ -45,6 +46,9 @@ export default function BookingRoute() {
         name: service.name,
         priceFromCents: service.priceFromCents,
       }}
+      // Composed here for the same reason as the service lookup: reviews and
+      // reservations are separate features and may not import each other.
+      reviews={<ServiceReviews serviceId={service.id} />}
     />
   );
 }

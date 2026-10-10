@@ -28,6 +28,8 @@ function makeService(id: string): Service {
     category: "hogar",
     priceFromCents: 45000,
     rating: 4.8,
+    ratingAverage: 4.8,
+    reviewCount: 3,
     providerName: "CleanPro",
     imageUrl: null,
     ownerId: null,

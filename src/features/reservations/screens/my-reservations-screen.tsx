@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,9 +34,25 @@ function errorHint(error: unknown): string {
   return "Estamos teniendo problemas con el servidor. Inténtalo más tarde.";
 }
 
-function ReservationRow({ reservation }: { reservation: Reservation }) {
+function ReservationRow({
+  reservation,
+  now,
+}: {
+  reservation: Reservation;
+  /**
+   * Pinned by the screen rather than read here: `Date.now()` during render is
+   * impure, and the React Compiler is free to memoize a render — which would
+   * freeze "has it happened yet?" at whatever it was the first time.
+   */
+  now: number;
+}) {
+  const router = useRouter();
   const { mutate, isPending } = useCancelReservationMutation();
   const cancelled = reservation.status === "cancelled";
+  // Only a booking that already happened can be rated — the API enforces it
+  // too, but offering the button would just produce a 409.
+  const reviewable =
+    !cancelled && new Date(reservation.scheduledFor).getTime() < now;
 
   return (
     <Card testID={`reservation-card-${reservation.id}`}>
@@ -55,7 +72,25 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
         {formatPriceMXN(reservation.priceAtBookingCents)}
       </ThemedText>
 
-      {cancelled ? null : (
+      {reviewable ? (
+        <Button
+          label="Calificar"
+          variant="outline"
+          size="sm"
+          testID={`reservation-review-${reservation.id}`}
+          onPress={() =>
+            router.push({
+              pathname: "/review",
+              params: {
+                reservationId: reservation.id,
+                serviceName: reservation.service.name,
+              },
+            })
+          }
+        />
+      ) : null}
+
+      {cancelled || reviewable ? null : (
         <Button
           label="Cancelar"
           variant="destructive"
@@ -72,6 +107,7 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
 /** Both sides of the booking, switched by a segmented control. */
 export function MyReservationsScreen() {
   const [role, setRole] = useState<ReservationRole>("customer");
+  const [now] = useState(() => Date.now());
   const { data, isPending, isError, error, refetch, isFetching } =
     useReservationsQuery({ role });
 
@@ -133,7 +169,9 @@ export function MyReservationsScreen() {
             testID="reservations-list"
             data={data}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ReservationRow reservation={item} />}
+            renderItem={({ item }) => (
+              <ReservationRow reservation={item} now={now} />
+            )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshing={isFetching}

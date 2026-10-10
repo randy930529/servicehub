@@ -52,8 +52,18 @@ const serviceSchema = new Schema(
     category: { type: String, required: true, enum: SERVICE_CATEGORIES },
     /** Starting price in MXN cents (integer, avoids float rounding). */
     priceFromCents: { type: Number, required: true, min: 0 },
-    /** Average rating, 0–5. */
+    /**
+     * Ranking score, 0–5. A Bayesian average, **not** the plain mean of the
+     * reviews — see `helpers/reputation.ts` for why. The catalog sorts by it.
+     */
     rating: { type: Number, required: true, min: 0, max: 5 },
+    /**
+     * Plain mean of the reviews, 0–5. What a screen should show: a score of
+     * 4.4 when every review said 5 reads as a bug, not as a ranking.
+     */
+    ratingAverage: { type: Number, required: true, min: 0, max: 5, default: 0 },
+    /** How many reviews back the two numbers above. */
+    reviewCount: { type: Number, required: true, min: 0, default: 0 },
     providerName: { type: String, required: true, trim: true },
     /**
      * Who may edit or delete this service. Nullable because the seeded catalog

@@ -127,6 +127,10 @@ describe("getServices", () => {
       category: "hogar",
       priceFromCents: 45000,
       rating: 4.8,
+      // Absent from this payload: a service that predates reputation reads as
+      // "no reviews", never as NaN.
+      ratingAverage: 0,
+      reviewCount: 0,
       providerName: "CleanPro",
       imageUrl: "http://localhost:9000/service-images/u1/a.jpg",
       ownerId: "user-1",

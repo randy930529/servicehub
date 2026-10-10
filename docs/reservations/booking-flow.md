@@ -5,7 +5,7 @@ Cómo un cliente reserva un servicio, cómo se cancela, y por qué pulsar
 
 ## El camino feliz
 
-```
+```text
 App                                   Backend
  │
  │  Catálogo → toca un servicio
@@ -48,7 +48,7 @@ reservationSchema.index({ customer: 1, idempotencyKey: 1 }, { unique: true });
 
 Esto importa. Un `findOne` antes del `create` parece equivalente pero no lo es:
 
-```
+```text
          reintento A              reintento B
             │                         │
             ├─ findOne → nada         │
