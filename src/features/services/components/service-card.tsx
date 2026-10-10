@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/shared/components/themed-text";
 import { Card } from "@/shared/components/ui/card";
 import { Spacing } from "@/shared/constants/theme";
+import { formatPriceMXN } from "@/shared/lib/format-price";
 import type { Service } from "../domain/types";
 
 /**
@@ -15,14 +16,6 @@ export function formatDistance(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m`;
   if (km < 10) return `${km.toFixed(1)} km`;
   return `${Math.round(km)} km`;
-}
-
-/** Formats integer cents as a grouped MXN amount, e.g. 45000 -> "$450 MXN". */
-function formatPrice(cents: number): string {
-  const pesos = Math.round(cents / 100)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `$${pesos} MXN`;
 }
 
 type ServiceCardProps = {
@@ -74,7 +67,7 @@ export function ServiceCard({ service, onPress, footer }: ServiceCardProps) {
               : ""}
           </ThemedText>
           <ThemedText type="smallBold">
-            Desde {formatPrice(service.priceFromCents)}
+            Desde {formatPriceMXN(service.priceFromCents)}
           </ThemedText>
         </View>
 

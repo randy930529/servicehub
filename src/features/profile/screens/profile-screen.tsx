@@ -107,6 +107,15 @@ export function ProfileScreen() {
       />
 
       <Button
+        label="Mis reservas"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-reservations-button"
+        onPress={() => router.push("/my-reservations")}
+      />
+
+      <Button
         label="Notificaciones"
         variant="outline"
         size="lg"

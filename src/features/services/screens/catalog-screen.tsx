@@ -203,7 +203,15 @@ export function CatalogScreen() {
             />
             {selectedService ? (
               <View style={styles.selectedCard} testID="catalog-map-selection">
-                <ServiceCard service={selectedService} />
+                <ServiceCard
+                  service={selectedService}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/booking",
+                      params: { serviceId: selectedService.id },
+                    })
+                  }
+                />
               </View>
             ) : (
               <View style={styles.mapHint} pointerEvents="none">
@@ -218,7 +226,17 @@ export function CatalogScreen() {
             testID="catalog-list"
             data={data.items}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ServiceCard service={item} />}
+            renderItem={({ item }) => (
+              <ServiceCard
+                service={item}
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking",
+                    params: { serviceId: item.id },
+                  })
+                }
+              />
+            )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshing={isFetching && !isFetchingNextPage}

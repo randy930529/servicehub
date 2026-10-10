@@ -173,6 +173,35 @@ export function getOpenApiSpec() {
               },
             },
           },
+          Reservation: {
+            type: "object",
+            description:
+              "A booking of a service. `priceAtBookingCents` is a snapshot: the provider may reprice later, but this is what was agreed.",
+            properties: {
+              _id: { type: "string" },
+              service: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  name: { type: "string", example: "Limpieza de hogar" },
+                  imageUrl: { type: "string", nullable: true },
+                },
+              },
+              customerId: { type: "string" },
+              providerId: { type: "string" },
+              scheduledFor: { type: "string", format: "date-time" },
+              status: {
+                type: "string",
+                enum: ["pending", "confirmed", "cancelled"],
+              },
+              priceAtBookingCents: { type: "integer", example: 45000 },
+              cancelledAt: {
+                type: "string",
+                format: "date-time",
+                nullable: true,
+              },
+            },
+          },
           Device: {
             type: "object",
             description: "A device registered to receive push notifications.",
