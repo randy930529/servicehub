@@ -49,15 +49,15 @@ describe("LoginScreen", () => {
   test("shows email validation error for invalid email", async () => {
     await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-email-input"),
       "invalido",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-password-input"),
       SIX_DIGITS,
     );
-    fireEvent.press(await screen.findByTestId("login-submit-button"));
+    await fireEvent.press(await screen.findByTestId("login-submit-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Ingresa un correo válido")).toBeTruthy();
@@ -67,15 +67,15 @@ describe("LoginScreen", () => {
   test("shows password validation error for short password", async () => {
     await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-email-input"),
       "a@b.com",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-password-input"),
       THREE_DIGITS,
     );
-    fireEvent.press(await screen.findByTestId("login-submit-button"));
+    await fireEvent.press(await screen.findByTestId("login-submit-button"));
 
     await waitFor(() => {
       expect(screen.getByText("Mínimo 6 caracteres")).toBeTruthy();
@@ -85,15 +85,15 @@ describe("LoginScreen", () => {
   test("calls auth store login on valid submission", async () => {
     await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-email-input"),
       "a@b.com",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-password-input"),
       SIX_DIGITS,
     );
-    fireEvent.press(await screen.findByTestId("login-submit-button"));
+    await fireEvent.press(await screen.findByTestId("login-submit-button"));
 
     await waitFor(() => {
       expect(mockLoginUser).toHaveBeenCalledWith({
@@ -111,15 +111,15 @@ describe("LoginScreen", () => {
 
     await render(<LoginScreen />);
 
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-email-input"),
       "a@b.com",
     );
-    fireEvent.changeText(
+    await fireEvent.changeText(
       await screen.findByTestId("login-password-input"),
       SIX_DIGITS,
     );
-    fireEvent.press(await screen.findByTestId("login-submit-button"));
+    await fireEvent.press(await screen.findByTestId("login-submit-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("login-server-error")).toBeTruthy();
