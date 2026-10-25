@@ -173,6 +173,28 @@ export function getOpenApiSpec() {
               },
             },
           },
+          Payment: {
+            type: "object",
+            description:
+              "Mirrors a Stripe PaymentIntent. No card data and no client_secret ever appear here.",
+            properties: {
+              _id: { type: "string" },
+              reservationId: { type: "string" },
+              amountCents: { type: "integer", example: 45000 },
+              currency: { type: "string", example: "mxn" },
+              status: {
+                type: "string",
+                enum: [
+                  "requires_payment",
+                  "processing",
+                  "succeeded",
+                  "failed",
+                  "canceled",
+                ],
+              },
+              lastError: { type: "string", nullable: true },
+            },
+          },
           Review: {
             type: "object",
             properties: {

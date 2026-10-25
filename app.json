@@ -69,6 +69,13 @@
         {
           "androidGoogleMapsApiKey": "AIzaSyAe4m3sdbJ1pMExxrwO00mzRk4XxG9zOy8"
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.randy.dev.servicehub",
+          "enableGooglePay": false
+        }
       ]
     ],
     "experiments": {

@@ -58,6 +58,12 @@ function ReservationRow({
   const cancelled = reservation.status === "cancelled";
   // Confirming a slot that already passed does nothing, and the API rejects
   // it, so the button only shows where it would actually work.
+  // Paying is the customer's side, and only for a booking that still lies
+  // ahead: charging for something already past belongs to a refund flow.
+  const payable =
+    role === "customer" &&
+    !cancelled &&
+    new Date(reservation.scheduledFor).getTime() > now;
   const confirmable =
     role === "provider" &&
     reservation.status === "pending" &&
@@ -93,6 +99,25 @@ function ReservationRow({
           loading={confirm.isPending}
           testID={`reservation-confirm-${reservation.id}`}
           onPress={() => confirm.mutate(reservation.id)}
+        />
+      ) : null}
+
+      {payable ? (
+        <Button
+          label="Pagar"
+          variant="primary"
+          size="sm"
+          testID={`reservation-pay-${reservation.id}`}
+          onPress={() =>
+            router.push({
+              pathname: "/checkout",
+              params: {
+                reservationId: reservation.id,
+                serviceName: reservation.service.name,
+                amountCents: String(reservation.priceAtBookingCents),
+              },
+            })
+          }
         />
       ) : null}
 
