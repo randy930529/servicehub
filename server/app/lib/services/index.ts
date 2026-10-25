@@ -1,3 +1,4 @@
+export * from "./payments";
 export * from "./reviews";
 export * from "./auth";
 export * from "./notifications";
