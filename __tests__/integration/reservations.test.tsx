@@ -278,6 +278,79 @@ describe("listar y cancelar", () => {
     expect(screen.getByText("Cancelada")).toBeTruthy();
   });
 
+  /** Presses cancel against a server that reports `payment` as the outcome. */
+  async function cancelWithPaymentOutcome(payment: Record<string, unknown>) {
+    let cancelled = false;
+
+    server.use(
+      http.get(RESERVATIONS_URL, () =>
+        HttpResponse.json({
+          data: [
+            cancelled
+              ? { ...API_RESERVATION, status: "cancelled" }
+              : API_RESERVATION,
+          ],
+        }),
+      ),
+      http.post(`${RESERVATIONS_URL}/${API_RESERVATION._id}/cancel`, () => {
+        cancelled = true;
+        return HttpResponse.json({
+          reservation: { ...API_RESERVATION, status: "cancelled" },
+          payment,
+        });
+      }),
+    );
+
+    const screen = await renderWithClient(<MyReservationsScreen />);
+
+    await fireEvent.press(
+      await screen.findByTestId(`reservation-cancel-${API_RESERVATION._id}`),
+    );
+
+    return screen;
+  }
+
+  test("says how much is coming back after cancelling a paid booking", async () => {
+    // A refund the customer is never told about reads exactly like no refund.
+    const screen = await cancelWithPaymentOutcome({
+      action: "refunded",
+      amountCents: 45000,
+    });
+
+    await screen.findByTestId(`reservation-refund-${API_RESERVATION._id}`);
+    expect(screen.getByText(/Te devolvemos \$450/)).toBeTruthy();
+  });
+
+  test("says nothing was charged when the intent was cancelled", async () => {
+    const screen = await cancelWithPaymentOutcome({
+      action: "canceled_intent",
+    });
+
+    await screen.findByTestId(`reservation-refund-${API_RESERVATION._id}`);
+    expect(screen.getByText(/No se te cobró nada/)).toBeTruthy();
+  });
+
+  test("admits it when the refund could not be issued", async () => {
+    // The booking is cancelled either way; claiming the money is on its way
+    // when it is not would be the one unforgivable message here.
+    const screen = await cancelWithPaymentOutcome({
+      action: "manual",
+      reason: "Payment is still processing",
+    });
+
+    await screen.findByTestId(`reservation-refund-${API_RESERVATION._id}`);
+    expect(screen.getByText(/pendiente de revisión/)).toBeTruthy();
+  });
+
+  test("stays quiet when there was no payment to undo", async () => {
+    const screen = await cancelWithPaymentOutcome({ action: "none" });
+
+    await waitFor(() => expect(screen.getByText("Cancelada")).toBeTruthy());
+    expect(
+      screen.queryByTestId(`reservation-refund-${API_RESERVATION._id}`),
+    ).toBeNull();
+  });
+
   test("explains an empty list rather than showing a blank screen", async () => {
     server.use(http.get(RESERVATIONS_URL, () => HttpResponse.json({ data: [] })));
 

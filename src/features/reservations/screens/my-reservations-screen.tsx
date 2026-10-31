@@ -11,7 +11,11 @@ import { BottomTabInset, MaxContentWidth, Spacing } from "@/shared/constants/the
 import { ApiError } from "@/shared/lib/api-error";
 import { formatPriceMXN } from "@/shared/lib/format-price";
 
-import type { Reservation, ReservationRole } from "../domain/types";
+import type {
+  CancelPaymentOutcome,
+  Reservation,
+  ReservationRole,
+} from "../domain/types";
 import { formatSlotFull } from "../lib/booking-slots";
 import {
   useCancelReservationMutation,
@@ -53,7 +57,7 @@ function ReservationRow({
   now: number;
 }) {
   const router = useRouter();
-  const { mutate, isPending } = useCancelReservationMutation();
+  const cancel = useCancelReservationMutation();
   const confirm = useConfirmReservationMutation();
   const cancelled = reservation.status === "cancelled";
   // Confirming a slot that already passed does nothing, and the API rejects
@@ -165,12 +169,56 @@ function ReservationRow({
           label="Cancelar"
           variant="destructive"
           size="sm"
-          loading={isPending}
+          loading={cancel.isPending}
           testID={`reservation-cancel-${reservation.id}`}
-          onPress={() => mutate(reservation.id)}
+          onPress={() => cancel.mutate(reservation.id)}
         />
       )}
+
+      {/* What happened to the money, said out loud. A refund the customer
+          is never told about reads exactly like no refund at all. */}
+      {cancel.data ? (
+        <RefundNotice
+          outcome={cancel.data.payment}
+          testID={`reservation-refund-${reservation.id}`}
+        />
+      ) : null}
     </Card>
+  );
+}
+
+function RefundNotice({
+  outcome,
+  testID,
+}: {
+  outcome: CancelPaymentOutcome;
+  testID: string;
+}) {
+  if (outcome.action === "none") return null;
+
+  if (outcome.action === "refunded") {
+    return (
+      <ThemedText type="small" themeColor="textSecondary" testID={testID}>
+        Te devolvemos {formatPriceMXN(outcome.amountCents)}. Tu banco puede
+        tardar unos días en mostrarlo.
+      </ThemedText>
+    );
+  }
+
+  if (outcome.action === "canceled_intent") {
+    return (
+      <ThemedText type="small" themeColor="textSecondary" testID={testID}>
+        No se te cobró nada.
+      </ThemedText>
+    );
+  }
+
+  // `manual`: the booking is cancelled either way, and saying "revisamos" is
+  // more honest than a cheerful message about money that has not moved.
+  return (
+    <ThemedText type="small" style={styles.warning} testID={testID}>
+      Cancelamos la reserva, pero el reembolso quedó pendiente de revisión.
+    </ThemedText>
   );
 }
 
@@ -297,6 +345,9 @@ const styles = StyleSheet.create({
   centeredText: {
     marginBottom: Spacing.two,
     textAlign: "center",
+  },
+  warning: {
+    color: "#b45309",
   },
   listContent: {
     gap: Spacing.three,

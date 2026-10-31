@@ -30,6 +30,27 @@ export interface Reservation {
   cancelledAt: string | null;
 }
 
+/**
+ * What happened to the money when a booking was cancelled.
+ *
+ * Cancelling is not only about the slot: a charge that went through gets
+ * refunded and an unpaid intent gets killed, and the person who cancelled
+ * deserves to be told which.
+ */
+export type CancelPaymentOutcome =
+  /** There was no payment, or nothing left to undo. */
+  | { action: "none" }
+  | { action: "refunded"; amountCents: number }
+  /** Nobody had paid; the intent was cancelled so nobody can. */
+  | { action: "canceled_intent" }
+  /** The server could not finish it. Somebody has to look. */
+  | { action: "manual"; reason: string };
+
+export interface CancelResult {
+  reservation: Reservation;
+  payment: CancelPaymentOutcome;
+}
+
 /** What the app sends to book a slot. */
 export interface ReservationInput {
   serviceId: string;

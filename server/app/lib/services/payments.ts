@@ -5,6 +5,7 @@ import type { PublicPaymentType } from "@/app/lib/definitions";
 import {
   isHandledEvent,
   mapStripeStatus,
+  planPaymentVoid,
   REFUND_EVENTS,
   refundState,
   shouldApplyStatus,
@@ -16,7 +17,7 @@ import {
   WebhookEvent,
   type PaymentDocument,
 } from "@/app/lib/models";
-import { applyRefundToPayment } from "./refunds";
+import { applyRefundToPayment, refundPayment } from "./refunds";
 import { connectToDatabase } from "@/app/lib/mongoose";
 import {
   getStripe,
@@ -228,7 +229,19 @@ export async function applyStripeEvent(
     throw error;
   }
 
-  const outcome = await dispatchStripeEvent(event);
+  let outcome: WebhookOutcomeType;
+
+  try {
+    outcome = await dispatchStripeEvent(event);
+  } catch (error) {
+    // The marker must not outlive the work it claims to have done. Stripe
+    // retries a 5xx, and with the row still there the retry would be
+    // deduplicated into a no-op — the event lost for good. That was survivable
+    // while handling an event only moved a status; it is not now that one can
+    // issue a refund.
+    await WebhookEvent.deleteOne({ stripeEventId: event.id });
+    throw error;
+  }
 
   await WebhookEvent.updateOne(
     { stripeEventId: event.id },
@@ -280,7 +293,115 @@ async function dispatchStripeEvent(
 
   await payment.save();
 
+  if (next === "succeeded") {
+    await settleReservationForPayment(payment);
+  }
+
   return { handled: true, changed: true, status: next };
+}
+
+/**
+ * Closes the loop between a payment and the booking it paid for.
+ *
+ * Until now the two were only linked by an id: a reservation could sit at
+ * `pending` with the money already taken, which is the kind of gap that gets
+ * noticed by the person who shows up and is told they never confirmed.
+ *
+ * The cancelled branch is the race worth naming: the customer cancels while
+ * the payment sheet is open, the charge lands anyway, and we end up holding
+ * money for a booking that no longer exists. Giving it back is the only
+ * honest answer, and it is a *deterministic* rule — not reconciliation
+ * guessing, which is why this one is allowed to move money on its own.
+ */
+async function settleReservationForPayment(
+  payment: PaymentDocument & { _id: unknown },
+): Promise<void> {
+  const reservation = await Reservation.findById(payment.reservation);
+  if (!reservation) return;
+
+  if (reservation.status === "pending") {
+    reservation.status = "confirmed";
+    await reservation.save();
+    return;
+  }
+
+  if (reservation.status === "cancelled") {
+    const result = await refundPayment(String(payment._id));
+
+    if (!result.ok) {
+      // Logged, not thrown: retrying the webhook would not change the answer,
+      // and `GET /api/payments/reconcile` is what surfaces it afterwards.
+      console.error(
+        `Paid a cancelled reservation ${String(reservation._id)} and could not refund it: ${result.message}`,
+      );
+    }
+  }
+}
+
+export type VoidPaymentOutcomeType =
+  | { action: "none" }
+  | { action: "refunded"; amountCents: number }
+  | { action: "canceled_intent" }
+  | { action: "manual"; reason: string };
+
+/**
+ * Undoes whatever a cancelled booking's payment was doing.
+ *
+ * **Never throws.** It is called after the cancellation is already saved, and
+ * a booking must not stay alive — holding an hour nobody can book — because
+ * Stripe had a bad minute. Anything that cannot be done here comes back as
+ * `manual` and is picked up by reconciliation.
+ */
+export async function voidPaymentForReservation(
+  reservationId: string,
+): Promise<VoidPaymentOutcomeType> {
+  try {
+    await connectToDatabase();
+
+    const payment = await Payment.findOne({ reservation: reservationId });
+    if (!payment) return { action: "none" };
+
+    const stripe = getStripe();
+    if (!stripe) {
+      return { action: "manual", reason: "Payments are not configured" };
+    }
+
+    const plan = planPaymentVoid({
+      status: payment.status,
+      amountCents: payment.amountCents,
+      refundedCents: payment.refundedCents,
+    });
+
+    if (plan.action === "refund") {
+      const result = await refundPayment(String(payment._id));
+      return result.ok
+        ? { action: "refunded", amountCents: result.amountCents }
+        : { action: "manual", reason: result.message };
+    }
+
+    if (plan.action === "cancel_intent") {
+      await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
+      // Written here as well as by the webhook, like a refund is: whoever
+      // cancelled should see the result now, and the event-id dedupe makes
+      // the webhook's copy a no-op.
+      payment.status = "canceled";
+      await payment.save();
+      return { action: "canceled_intent" };
+    }
+
+    return plan.action === "manual"
+      ? { action: "manual", reason: plan.reason }
+      : { action: "none" };
+  } catch (error) {
+    console.error(
+      `Could not void the payment for reservation ${reservationId}`,
+      error,
+    );
+    return {
+      action: "manual",
+      reason: "Could not reach Stripe; check the payment by hand",
+    };
+  }
 }
 
 /**

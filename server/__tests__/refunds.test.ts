@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   checkRefundable,
   mapStripeStatus,
+  planPaymentVoid,
   reconcilePayment,
   refundState,
 } from "@/app/lib/helpers";
@@ -27,6 +28,52 @@ describe("refundState", () => {
     // Fees and rounding can settle a cent above. Calling that "partial" would
     // leave a payment looking permanently half-refunded.
     assert.equal(refundState(30000, 30001), "full");
+  });
+});
+
+describe("planPaymentVoid", () => {
+  it("refunds what is left of a charge that went through", () => {
+    const plan = planPaymentVoid(paid);
+    assert.deepEqual(plan, { action: "refund", amountCents: 30000 });
+  });
+
+  it("refunds only the remainder after a partial", () => {
+    const plan = planPaymentVoid({ ...paid, refundedCents: 10000 });
+    assert.deepEqual(plan, { action: "refund", amountCents: 20000 });
+  });
+
+  it("does nothing when it was already given back", () => {
+    // A retry of the same cancellation must not issue a second refund.
+    const plan = planPaymentVoid({ ...paid, refundedCents: 30000 });
+    assert.deepEqual(plan, { action: "none" });
+  });
+
+  it("kills an intent nobody has paid yet", () => {
+    // The dangerous one: left alive, the customer can still complete the
+    // sheet and pay for a booking that no longer exists.
+    assert.deepEqual(
+      planPaymentVoid({ ...paid, status: "requires_payment" }),
+      { action: "cancel_intent" },
+    );
+  });
+
+  it("kills a failed intent too, since it can be retried", () => {
+    assert.deepEqual(planPaymentVoid({ ...paid, status: "failed" }), {
+      action: "cancel_intent",
+    });
+  });
+
+  it("hands a processing payment to a person", () => {
+    // Stripe refuses to cancel it and it may still succeed, so neither
+    // action is possible yet — and silence here loses the customer's money.
+    const plan = planPaymentVoid({ ...paid, status: "processing" });
+    assert.equal(plan.action, "manual");
+  });
+
+  it("does nothing for an already-canceled payment", () => {
+    assert.deepEqual(planPaymentVoid({ ...paid, status: "canceled" }), {
+      action: "none",
+    });
   });
 });
 
