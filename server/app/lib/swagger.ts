@@ -262,6 +262,53 @@ export function getOpenApiSpec() {
               },
             },
           },
+          Conversation: {
+            type: "object",
+            description:
+              "A 1:1 thread, already resolved for the caller: `peer` is the other person and `hasUnread` is from the caller's point of view, so the same document renders differently for each side.",
+            properties: {
+              _id: { type: "string" },
+              peer: {
+                type: "object",
+                properties: {
+                  _id: { type: "string" },
+                  name: { type: "string", example: "Ana Pérez" },
+                  avatarUrl: { type: "string", nullable: true },
+                },
+              },
+              lastMessage: {
+                type: "object",
+                nullable: true,
+                description: "Denormalized preview; null until someone writes.",
+                properties: {
+                  body: { type: "string", example: "¿Sigue disponible?" },
+                  senderId: { type: "string" },
+                  createdAt: { type: "string", format: "date-time" },
+                },
+              },
+              hasUnread: {
+                type: "boolean",
+                description:
+                  "A dot, not a count: derived from the last message and the caller's read mark.",
+              },
+              updatedAt: { type: "string", format: "date-time" },
+            },
+          },
+          ChatMessage: {
+            type: "object",
+            properties: {
+              _id: { type: "string" },
+              conversationId: { type: "string" },
+              senderId: { type: "string" },
+              body: { type: "string", example: "Sí, mañana a las 10" },
+              createdAt: { type: "string", format: "date-time" },
+              readByPeer: {
+                type: "boolean",
+                description:
+                  "Derived from the other person's read mark on the conversation, not stored per message. Only meaningful on your own messages.",
+              },
+            },
+          },
           PaginationMeta: {
             type: "object",
             properties: {

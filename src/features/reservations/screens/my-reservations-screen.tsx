@@ -139,6 +139,27 @@ function ReservationRow({
         />
       ) : null}
 
+      <Button
+        label="Mensaje"
+        variant="ghost"
+        size="sm"
+        testID={`reservation-chat-${reservation.id}`}
+        onPress={() =>
+          // Navigation by path, not an import: features may not depend on
+          // each other, and the chat route only needs who to write to. It
+          // opens the thread itself if there is not one yet.
+          router.push({
+            pathname: "/chat",
+            params: {
+              peerId:
+                role === "customer"
+                  ? reservation.providerId
+                  : reservation.customerId,
+            },
+          })
+        }
+      />
+
       {cancelled || reviewable ? null : (
         <Button
           label="Cancelar"
@@ -205,14 +226,6 @@ export function MyReservationsScreen() {
               onPress={() => refetch()}
             />
           </View>
-        ) : data.length === 0 ? (
-          <View style={styles.centered} testID="reservations-empty">
-            <ThemedText type="smallBold">
-              {role === "customer"
-                ? "Todavía no has reservado nada"
-                : "Nadie ha reservado tus servicios"}
-            </ThemedText>
-          </View>
         ) : (
           <FlatList
             testID="reservations-list"
@@ -221,7 +234,24 @@ export function MyReservationsScreen() {
             renderItem={({ item }) => (
               <ReservationRow reservation={item} now={now} role={role} />
             )}
-            contentContainerStyle={styles.listContent}
+            // Inside the list, not instead of it: rendered as a sibling the
+            // empty state looks identical and leaves no way to refresh — and
+            // the provider side fills up without this screen being touched.
+            ListEmptyComponent={
+              <View style={styles.centered} testID="reservations-empty">
+                <ThemedText type="smallBold">
+                  {role === "customer"
+                    ? "Todavía no has reservado nada"
+                    : "Nadie ha reservado tus servicios"}
+                </ThemedText>
+              </View>
+            }
+            contentContainerStyle={[
+              styles.listContent,
+              // An empty list is zero-height, and a pull on empty space is
+              // not a pull on the list.
+              data.length === 0 && styles.listContentEmpty,
+            ]}
             showsVerticalScrollIndicator={false}
             refreshing={isFetching}
             onRefresh={refetch}
@@ -271,5 +301,8 @@ const styles = StyleSheet.create({
   listContent: {
     gap: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.four,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
   },
 });

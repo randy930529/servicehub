@@ -286,6 +286,15 @@ describe("listar y cancelar", () => {
     await waitFor(() =>
       expect(screen.getByTestId("reservations-empty")).toBeTruthy(),
     );
+
+    // And the list stays mounted underneath it. Rendering the empty state
+    // *instead of* the list looks identical and silently removes
+    // pull-to-refresh — on a screen the provider side fills up without the
+    // app being touched.
+    expect(screen.getByTestId("reservations-list")).toBeTruthy();
+    expect(
+      screen.getByTestId("reservations-list").props.onRefresh,
+    ).toBeDefined();
   });
 });
 

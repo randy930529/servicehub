@@ -1,3 +1,4 @@
+export * from "./chat";
 export * from "./payment";
 export * from "./review";
 export * from "./reservation";

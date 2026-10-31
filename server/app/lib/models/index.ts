@@ -1,3 +1,5 @@
+export * from "./conversation";
+export * from "./message";
 export * from "./webhook-event";
 export * from "./payment";
 export * from "./review";
