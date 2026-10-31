@@ -116,6 +116,15 @@ export function ProfileScreen() {
       />
 
       <Button
+        label="Mensajes"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-messages-button"
+        onPress={() => router.push("/messages")}
+      />
+
+      <Button
         label="Mis horarios"
         variant="outline"
         size="lg"

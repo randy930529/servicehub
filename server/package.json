@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --import tsx server.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "node --import tsx server.ts --prod",
     "lint": "next lint",
     "seed": "tsx app/lib/scripts/seed.ts",
     "test": "node --import tsx --test \"__tests__/**/*.test.ts\""
@@ -19,6 +19,7 @@
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "socket.io": "4.8.4",
     "stripe": "^23.0.0",
     "swagger-ui-react": "5.32.8",
     "zod": "4.4.3"
@@ -31,6 +32,7 @@
     "@types/swagger-ui-react": "5.18.0",
     "eslint": "10.6.0",
     "eslint-config-next": "16.2.10",
+    "socket.io-client": "4.8.4",
     "swagger-jsdoc": "6.3.0",
     "tsx": "4.23.0",
     "typescript": "5"

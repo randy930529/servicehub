@@ -150,5 +150,12 @@ describe("historial de pagos", () => {
     const screen = await renderWithClient(<PaymentHistoryScreen />);
 
     await waitFor(() => expect(screen.getByTestId("payments-empty")).toBeTruthy());
+
+    // And the list stays mounted underneath it. Rendering the empty state
+    // *instead of* the list looks identical and silently removes
+    // pull-to-refresh — on a screen a refund can change without the app
+    // being touched.
+    expect(screen.getByTestId("payments-list")).toBeTruthy();
+    expect(screen.getByTestId("payments-list").props.onRefresh).toBeDefined();
   });
 });

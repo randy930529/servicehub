@@ -108,17 +108,26 @@ export function PaymentHistoryScreen() {
               onPress={() => refetch()}
             />
           </View>
-        ) : data.length === 0 ? (
-          <View style={styles.centered} testID="payments-empty">
-            <ThemedText type="smallBold">Todavía no tienes pagos</ThemedText>
-          </View>
         ) : (
           <FlatList
             testID="payments-list"
             data={data}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <Receipt payment={item} />}
-            contentContainerStyle={styles.listContent}
+            // Inside the list, not instead of it: rendered as a sibling the
+            // empty state looks identical and leaves no way to refresh — and
+            // a refund lands here without the app ever being touched.
+            ListEmptyComponent={
+              <View style={styles.centered} testID="payments-empty">
+                <ThemedText type="smallBold">Todavía no tienes pagos</ThemedText>
+              </View>
+            }
+            contentContainerStyle={[
+              styles.listContent,
+              // An empty list is zero-height, and a pull on empty space is
+              // not a pull on the list.
+              data.length === 0 && styles.listContentEmpty,
+            ]}
             showsVerticalScrollIndicator={false}
             refreshing={isFetching}
             onRefresh={refetch}
@@ -155,4 +164,5 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.four,
   },
+  listContentEmpty: { flexGrow: 1 },
 });
