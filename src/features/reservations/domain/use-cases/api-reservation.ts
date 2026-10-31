@@ -1,4 +1,8 @@
-import type { Reservation, ReservationFilters } from "../types";
+import type {
+  CancelPaymentOutcome,
+  Reservation,
+  ReservationFilters,
+} from "../types";
 
 /** A reservation as returned by the backend (Mongo `_id`). */
 export interface ApiReservation {
@@ -18,6 +22,11 @@ export interface ApiReservationList {
 
 export interface ApiReservationResponse {
   reservation: ApiReservation;
+}
+
+export interface ApiCancelResponse {
+  reservation: ApiReservation;
+  payment?: CancelPaymentOutcome;
 }
 
 /** Maps the API shape (`_id`) to the domain `Reservation` (`id`). */

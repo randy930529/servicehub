@@ -12,6 +12,10 @@ import {
   type WorkingHoursType,
 } from "@/app/lib/helpers";
 import { ZodSubmitHandler, type SubmitError } from "@/app/lib/core";
+import {
+  voidPaymentForReservation,
+  type VoidPaymentOutcomeType,
+} from "./payments";
 import type { PublicReservationType } from "@/app/lib/definitions";
 import {
   Reservation,
@@ -254,7 +258,12 @@ export class CreateReservation extends ZodSubmitHandler<
 }
 
 type CancelResultType =
-  | { ok: true; reservation: PublicReservationType }
+  | {
+      ok: true;
+      reservation: PublicReservationType;
+      /** What happened to the money, so the app can say so out loud. */
+      payment: VoidPaymentOutcomeType;
+    }
   | { ok: false; status: number; message: string };
 
 /**
@@ -296,7 +305,15 @@ export async function cancelReservation(
   }
 
   if (reservation.status === "cancelled") {
-    return { ok: true, reservation: toPublicReservation(reservation) };
+    // Already cancelled, but the money may not have been dealt with: a first
+    // attempt could have freed the slot and then failed to reach Stripe.
+    // Retrying is safe — the refund is idempotent and a second one is a
+    // no-op — and it is what makes "ask again" a real fix.
+    return {
+      ok: true,
+      reservation: toPublicReservation(reservation),
+      payment: await voidPaymentForReservation(String(reservation._id)),
+    };
   }
 
   reservation.status = "cancelled";
@@ -306,7 +323,14 @@ export async function cancelReservation(
   reservation.set("activeSlot", undefined);
   await reservation.save();
 
-  return { ok: true, reservation: toPublicReservation(reservation) };
+  // After the cancellation is saved, never before. If this order were
+  // reversed a crash in between would leave the money returned and the hour
+  // still held — the one outcome that is worse than a late refund. And
+  // `voidPaymentForReservation` never throws, so Stripe having a bad minute
+  // cannot keep a booking alive.
+  const payment = await voidPaymentForReservation(String(reservation._id));
+
+  return { ok: true, reservation: toPublicReservation(reservation), payment };
 }
 
 /**

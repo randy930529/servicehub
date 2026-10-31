@@ -73,6 +73,56 @@ export function checkRefundable(
   return { ok: true, amountCents: requested };
 }
 
+/**
+ * What to do with a payment when its booking is cancelled.
+ *
+ * Four states, four different right answers, and getting them wrong costs
+ * real money in both directions: refunding what was never charged, or leaving
+ * a live intent attached to a booking that no longer exists so the customer
+ * can still pay for nothing.
+ */
+export type PaymentVoidPlanType =
+  /** Money was taken. Give back what has not been given back yet. */
+  | { action: "refund"; amountCents: number }
+  /** Nothing was taken, but the intent could still be paid. Kill it. */
+  | { action: "cancel_intent" }
+  /** Nothing to do, and nothing wrong. */
+  | { action: "none" }
+  /** Stripe will not let us act; a person has to look. */
+  | { action: "manual"; reason: string };
+
+export function planPaymentVoid(payment: {
+  status: string;
+  amountCents: number;
+  refundedCents: number;
+}): PaymentVoidPlanType {
+  if (payment.status === "succeeded") {
+    const remaining = payment.amountCents - payment.refundedCents;
+    // Already given back — by an operator, or by a retry of this same path.
+    if (remaining <= 0) return { action: "none" };
+    return { action: "refund", amountCents: remaining };
+  }
+
+  // An intent nobody paid yet is the dangerous one: left alive, the customer
+  // can still complete the sheet for a booking that no longer exists.
+  if (payment.status === "requires_payment" || payment.status === "failed") {
+    return { action: "cancel_intent" };
+  }
+
+  if (payment.status === "processing") {
+    // Stripe refuses to cancel a processing intent, and it may still
+    // succeed. Neither refunding nor cancelling is possible *yet*, so this
+    // has to surface rather than be swallowed.
+    return {
+      action: "manual",
+      reason: "Payment is still processing; refund it once it settles",
+    };
+  }
+
+  // Already canceled: nothing was taken and nothing can be.
+  return { action: "none" };
+}
+
 /** Refund events worth acting on. */
 export const REFUND_EVENTS = [
   "charge.refunded",

@@ -11,7 +11,16 @@ import { ApiError } from "@/shared/lib/api-error";
 import { Avatar } from "../components/avatar";
 import { useProfileQuery } from "../queries/use-profile-query";
 
-export function ProfileScreen() {
+export type ProfileScreenProps = {
+  /**
+   * Signing out is injected rather than done here: the session belongs to the
+   * auth feature and the cache to the app layer, and this feature may import
+   * neither. The route wires both — see `app/(tabs)/profile.tsx`.
+   */
+  onLogout: () => void;
+};
+
+export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { data: profile, isPending, isError, error, refetch } = useProfileQuery();
@@ -149,6 +158,15 @@ export function ProfileScreen() {
         fullWidth
         testID="profile-notifications-button"
         onPress={() => router.push("/notifications")}
+      />
+
+      <Button
+        label="Cerrar sesión"
+        variant="destructive"
+        size="lg"
+        fullWidth
+        testID="profile-logout-button"
+        onPress={onLogout}
       />
     </ScrollView>
   );
