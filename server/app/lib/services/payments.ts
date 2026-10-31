@@ -5,10 +5,18 @@ import type { PublicPaymentType } from "@/app/lib/definitions";
 import {
   isHandledEvent,
   mapStripeStatus,
+  REFUND_EVENTS,
+  refundState,
   shouldApplyStatus,
   type PaymentStatusType,
 } from "@/app/lib/helpers";
-import { Payment, Reservation, type PaymentDocument } from "@/app/lib/models";
+import {
+  Payment,
+  Reservation,
+  WebhookEvent,
+  type PaymentDocument,
+} from "@/app/lib/models";
+import { applyRefundToPayment } from "./refunds";
 import { connectToDatabase } from "@/app/lib/mongoose";
 import {
   getStripe,
@@ -35,8 +43,11 @@ export function toPublicPayment(source: {
   currency: string;
   status: PaymentStatusType;
   lastError?: string | null;
+  refundedCents?: number;
   createdAt?: Date | string | null;
 }): PublicPaymentType {
+  const refundedCents = source.refundedCents ?? 0;
+
   return {
     _id: String(source._id),
     reservationId: String(source.reservation),
@@ -44,6 +55,8 @@ export function toPublicPayment(source: {
     currency: source.currency,
     status: source.status,
     lastError: source.lastError ?? null,
+    refundedCents,
+    refundState: refundState(source.amountCents, refundedCents),
     createdAt: toIsoString(source.createdAt),
   };
 }
@@ -170,7 +183,13 @@ export async function createPaymentIntent(
 }
 
 export type WebhookOutcomeType =
-  | { handled: true; changed: boolean; status?: PaymentStatusType }
+  | {
+      handled: true;
+      changed: boolean;
+      status?: PaymentStatusType;
+      /** True when this exact event had already been processed. */
+      duplicate?: boolean;
+    }
   | { handled: false; reason: string };
 
 /**
@@ -186,6 +205,47 @@ export type WebhookOutcomeType =
 export async function applyStripeEvent(
   event: Stripe.Event,
 ): Promise<WebhookOutcomeType> {
+  await connectToDatabase();
+
+  // Event-id dedupe, before anything else. Week 15 deduped by *status*, which
+  // works for a state machine and breaks for anything cumulative: two partial
+  // refunds are two legitimate events, and a replay of one would be counted
+  // twice. Stripe keeps the event id stable across retries, so "have I seen
+  // this exact event?" is the only question that works for every type.
+  //
+  // The insert is the check: two retries arriving at once would both pass a
+  // read-then-write, and the loser of the unique index is the one that must
+  // do nothing.
+  try {
+    await WebhookEvent.create({
+      stripeEventId: event.id,
+      type: event.type,
+    });
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      return { handled: true, changed: false, duplicate: true };
+    }
+    throw error;
+  }
+
+  const outcome = await dispatchStripeEvent(event);
+
+  await WebhookEvent.updateOne(
+    { stripeEventId: event.id },
+    { outcome: JSON.stringify(outcome).slice(0, 200) },
+  );
+
+  return outcome;
+}
+
+/** Routes a verified, not-yet-seen event to whatever should act on it. */
+async function dispatchStripeEvent(
+  event: Stripe.Event,
+): Promise<WebhookOutcomeType> {
+  if ((REFUND_EVENTS as readonly string[]).includes(event.type)) {
+    return applyRefundEvent(event);
+  }
+
   if (!isHandledEvent(event.type)) {
     // Acknowledged, not acted on. Returning an error would make Stripe retry
     // an event we will never care about, forever.
@@ -193,8 +253,6 @@ export async function applyStripeEvent(
   }
 
   const intent = event.data.object as Stripe.PaymentIntent;
-
-  await connectToDatabase();
 
   const payment = await Payment.findOne({ stripePaymentIntentId: intent.id });
 
@@ -207,7 +265,11 @@ export async function applyStripeEvent(
   const next = mapStripeStatus(intent.status);
 
   if (!shouldApplyStatus(payment.status as PaymentStatusType, next)) {
-    return { handled: true, changed: false, status: payment.status as PaymentStatusType };
+    return {
+      handled: true,
+      changed: false,
+      status: payment.status as PaymentStatusType,
+    };
   }
 
   payment.status = next;
@@ -219,6 +281,47 @@ export async function applyStripeEvent(
   await payment.save();
 
   return { handled: true, changed: true, status: next };
+}
+
+/**
+ * Refund events. `charge.refunded` carries the charge (with its refund list);
+ * `refund.*` carry the refund itself. Both end up in the same place.
+ */
+async function applyRefundEvent(
+  event: Stripe.Event,
+): Promise<WebhookOutcomeType> {
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    const intentId =
+      typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id;
+
+    if (!intentId) {
+      return { handled: false, reason: "Charge has no payment intent" };
+    }
+
+    let changed = false;
+    for (const refund of charge.refunds?.data ?? []) {
+      // `||=` not `=`: one applied refund out of several still counts.
+      changed = (await applyRefundToPayment(intentId, refund)) || changed;
+    }
+
+    return { handled: true, changed };
+  }
+
+  const refund = event.data.object as Stripe.Refund;
+  const intentId =
+    typeof refund.payment_intent === "string"
+      ? refund.payment_intent
+      : refund.payment_intent?.id;
+
+  if (!intentId) {
+    return { handled: false, reason: "Refund has no payment intent" };
+  }
+
+  const changed = await applyRefundToPayment(intentId, refund);
+  return { handled: true, changed };
 }
 
 /** `GET /api/payments?reservationId=…` — the caller's payment for a booking. */
@@ -236,4 +339,25 @@ export async function getPaymentForReservation(
   });
 
   return payment ? toPublicPayment(payment) : null;
+}
+
+/**
+ * `GET /api/payments/history` — every payment the caller made, newest first.
+ *
+ * Scoped to the authenticated customer. Not paginated: a person's own
+ * payments are a short list, and a cursor nobody scrolls is dead weight.
+ */
+export async function listPaymentHistory(
+  userId: string,
+): Promise<PublicPaymentType[]> {
+  await connectToDatabase();
+
+  const payments = await Payment.find({ customer: userId })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  return payments.map((p) =>
+    toPublicPayment(p as unknown as Parameters<typeof toPublicPayment>[0]),
+  );
 }

@@ -15,5 +15,9 @@ export type PublicPaymentType = {
   status: PaymentStatusType;
   /** Decline reason from Stripe, when there is one. Not sensitive. */
   lastError: string | null;
+  /** Cents given back. Orthogonal to `status` — see helpers/refunds.ts. */
+  refundedCents: number;
+  /** Derived: `none`, `partial` or `full`. */
+  refundState: "none" | "partial" | "full";
   createdAt: string | null;
 };

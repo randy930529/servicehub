@@ -24,7 +24,18 @@ export interface Payment {
   status: PaymentStatus;
   /** Decline reason from Stripe, when there is one. */
   lastError: string | null;
+  /**
+   * Cents given back. A separate axis from `status`: a charge that succeeded
+   * and was then refunded is both of those things, and overwriting one with
+   * the other would lose information a receipt needs.
+   */
+  refundedCents: number;
+  refundState: RefundState;
+  /** ISO 8601. A receipt without a date is not a receipt. */
+  createdAt: string | null;
 }
+
+export type RefundState = "none" | "partial" | "full";
 
 /**
  * What the API hands back to start a checkout.

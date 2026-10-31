@@ -46,6 +46,32 @@ const paymentSchema = new Schema(
      * not sensitive, and hiding it leaves the customer guessing.
      */
     lastError: { type: String, default: null },
+    /**
+     * How much has been given back, in cents. A separate axis from `status`
+     * on purpose — see `helpers/refunds.ts`: `succeeded` stays terminal so a
+     * late failure event cannot un-pay an order, and a refund is a thing that
+     * happened *after* a successful charge, not a contradiction of it.
+     */
+    refundedCents: { type: Number, required: true, min: 0, default: 0 },
+    /**
+     * One entry per Stripe refund. Stored rather than derived because a
+     * partial refund history is what an operator needs when a customer asks
+     * "but you only gave me back half".
+     */
+    refunds: {
+      type: [
+        new Schema(
+          {
+            stripeRefundId: { type: String, required: true },
+            amountCents: { type: Number, required: true, min: 0 },
+            status: { type: String, required: true },
+            reason: { type: String, default: null },
+          },
+          { _id: false, timestamps: true },
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );
