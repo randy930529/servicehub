@@ -19,6 +19,10 @@ const refreshTokenSchema = new Schema(
   { _id: false, timestamps: { createdAt: true, updatedAt: false } },
 );
 
+export const USER_ROLES = ["user", "admin"] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
 /** Weekly schedule. Hours are market-local; see `helpers/availability.ts`. */
 const workingHoursSchema = new Schema(
   {
@@ -54,6 +58,12 @@ const userSchema = new Schema(
      */
     avatarKey: { type: String, default: null },
     /** Active sessions (one per device); pruned of expired entries on refresh. */
+    /**
+     * Platform role. Everyone is a `user`; `admin` is granted by hand in the
+     * database, deliberately — there is no self-serve path to the endpoints
+     * that move money backwards, and there should not be one.
+     */
+    role: { type: String, required: true, enum: USER_ROLES, default: "user" },
     refreshTokens: { type: [refreshTokenSchema], default: [] },
     /**
      * When this user, acting as a provider, takes bookings. Market-local

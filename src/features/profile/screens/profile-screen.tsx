@@ -107,6 +107,15 @@ export function ProfileScreen() {
       />
 
       <Button
+        label="Mis pagos"
+        variant="outline"
+        size="lg"
+        fullWidth
+        testID="profile-payments-button"
+        onPress={() => router.push("/payments")}
+      />
+
+      <Button
         label="Mis horarios"
         variant="outline"
         size="lg"
